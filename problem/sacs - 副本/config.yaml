@@ -1,45 +1,61 @@
-# -----------------------------------------------------------------
-# problem/sacs/config.yaml
-# -----------------------------------------------------------------
-exper_name: "SACS Jacket Optimization - Code Block Generation"
-description: "Optimizing SACS structure using direct code block generation by LLM."
-save_dir: "./moo_results/" # Relative path for saving results
-save_suffix: "sacs_block_gen"
+# config.yaml (Modified)
+
+exper_name: "SACS_Jacket_Expanded_3_Obj_Optimization"
+description: "Optimizing SACS jacket structure with an expanded set of members (including I-beams) using a 3-objective approach: weight, max_axial_uc, and max_bending_uc."
+save_dir: "./moo_results/"
+save_suffix: "sacs_expanded_3_obj"
 
 resume: False
 
 model:
-  name: zgca,gemini-2.5-flash-nothinking  #,gemini-2.5-flash-nothinking     gpt-4-0125-preview  gpt-4o-2024-05-13
-  # name2: zgca,gpt-4o-2024-05-13
+  name: zgca,gemini-2.5-flash-nothinking
   prompt_module: Prompt
   experience_prob: 0.5
-  crossover_prob: 0.8
-  mutation_prob: 0.2
-  explore_prob: 0.
-use_au: False  # If True, this will use au model, set to false if you only want to use one LLM
+  crossover_prob: 0.7
+  mutation_prob: 0.3
+  explore_prob: 0
+use_au: False
 
-# --- Key Problem Definitions ---
-goals: [weight, uc, fatigue]
-optimization_direction: [min, min, max]
+# --- 核心变更: 更新优化目标，移除疲劳 ---
+goals: [weight, axial_uc_max, bending_uc_max]
+optimization_direction: [min, min, min]
 
-# --- Path to problem-specific files ---
 prompt_info_path: ./problem/sacs/sacs.yaml
 evalutor_path: problem.sacs.evaluator
 
-# --- SACS-specific Configuration ---
 sacs:
-  project_path: "/mnt/d/Python project/sacs_llm/demo06_project/Demo06" # IMPORTANT: Set this to your actual SACS project path
-  # --- Define which code blocks are optimizable ---
+  project_path: "/mnt/d/wsl_sacs_exchange/demo06_project/Demo06"
+  install_path: "C:\\Program Files (x86)\\Bentley\\Engineering\\SACS CONNECT Edition V16 Update 1"
+  
+  # --- 核心变更: 大幅扩展可优化的构件组 ---
   optimizable_blocks:
+    # 导管架腿 (Legs)
     - "GRUP LG1"
     - "GRUP LG2"
     - "GRUP LG3"
     - "GRUP LG4"
+    - "GRUP LG5"
+    - "GRUP LG6"
+    - "GRUP LG7"
+    # 桩 (Piles)
+    - "GRUP PL1"
+    - "GRUP PL2"
+    - "GRUP PL3"
+    - "GRUP PL4"
+    # 支撑 (Braces)
     - "GRUP T01"
     - "GRUP T02"
     - "GRUP T03"
+    - "GRUP T04"
+    - "GRUP T05"
+    # 其他管件
+    - "GRUP W.B"
+    # 新增: 平台工字钢主梁 (I-Beams)
+    - "GRUP W01"
+    - "GRUP W02"
+    # 板单元 (Plate Groups)
     - "PGRUP P01"
 
 optimization:
-  pop_size: 20
-  eval_budget: 200 # Total number of SACS runs
+  pop_size: 40
+  eval_budget: 5000

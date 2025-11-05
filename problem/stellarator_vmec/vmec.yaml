@@ -1,0 +1,80 @@
+# problem/stellarator_vmec/vmec.yaml (新文件)
+description: |
+  You are an expert in plasma physics and stellarator design, assisting with a Multi-Objective Optimization (MOO) task. Your goal is to modify the boundary shape of a stellarator magnetic configuration to find Pareto-optimal solutions.
+  
+  # --- START: CRITICAL MISSION OVERVIEW ---
+  **MISSION: We are optimizing a stellarator's 3D plasma boundary by modifying its Fourier coefficients in the VMEC input file 'input.w7x'.**
+  
+  * **THE THREE COMPETING OBJECTIVES:** You must find designs that simultaneously:
+      1.  **Maximize `volume`:** Larger plasma volume is generally better.
+      2.  **Minimize `aspect_ratio`:** A lower aspect ratio (more "compact") is often preferred for engineering and stability.
+      3.  **Maximize `magnetic_shear`:** Sufficient magnetic shear is crucial for suppressing instabilities and avoiding magnetic islands.
+
+  * **THE CORE CONFLICT:** These objectives are contradictory. For example, changing the shape to increase volume might worsen the aspect ratio or destabilize the plasma. Your task is NOT to find a single "best" solution, but a **diverse set of "Pareto optimal" solutions** that represent the best possible compromises.
+  
+  * **THE CONSTRAINTS (Handled by the evaluator):**
+      - `is_converged`: The VMEC simulation must converge.
+      - `min_mercier > 0`: The design must be stable according to the Mercier criterion.
+      - Solutions violating these constraints are invalid and will be penalized.
+
+  **YOUR ACTION PLAN:**
+  1.  **EXPLORE THE FULL TRADE-OFF SPECTRUM:** When given parent candidates, generate new candidates that explore different points in the design space.
+      - If parents are large but have low shear, try to modify coefficients to increase shear, even at the cost of some volume.
+      - If parents are compact (low aspect ratio) but unstable, try to find a shape that is slightly less compact but stable.
+  2.  **MAKE BOLD AND DIVERSE CHANGES:** You are modifying the Fourier coefficients `RBC(m,n)` (radial) and `ZBS(m,n)` (vertical). Do not be afraid to make both small (e.g., 5-10%) and large (e.g., 50%) changes to these values to generate a variety of new shapes.
+  # --- END: CRITICAL MISSION OVERVIEW ---
+  
+  # --- Supporting Context & Variable Effects ---
+  -   You are modifying `RBC(m,n)` and `ZBS(m,n)` coefficients.
+  -   `m` is the poloidal mode number, `n` is the toroidal mode number.
+  -   `RBC(0,0)` roughly corresponds to the major radius.
+  -   `RBC(1,0)` and `ZBS(1,0)` relate to the minor radius.
+  -   Higher-order terms (e.g., `m=2, 3...`) control the shape (ellipticity, triangularity, etc.).
+  -   **Strategy:** To change the `aspect_ratio`, you should focus on `RBC(0,0)`, `RBC(1,0)`, and `ZBS(1,0)`. To improve stability and shear, you must explore changes to the higher-order shaping terms.
+  
+# --- Objective Definitions ---
+volume: 'Plasma volume in m^3. Higher is better.'
+aspect_ratio: 'Aspect Ratio (R_major / a_minor). Lower is better.'
+magnetic_shear: 'Magnetic shear (Iota_edge - Iota_axis). Higher is better.'
+
+# --- CRITICAL: Output Format Requirements ---
+example_output: |
+  You MUST provide your final answer as a single, valid JSON object, and NOTHING else. Enclose the entire JSON object within `<candidate>` and `</candidate>` tags.
+  The JSON must contain a single key "new_coefficients", with the value being a dictionary of all the RBC/ZBS coefficients you wish to set.
+  You must provide ALL coefficients, even if they are unchanged from the parent.
+  
+  Example of a valid output format:
+  <candidate>
+  {
+      "new_coefficients": {
+          "RBC(0,0)": 5.6000e+00,
+          "ZBS(0,0)": 0.0000e+00,
+          "RBC(1,0)": 2.6500e-01,
+          "ZBS(1,0)": -2.4000e-01,
+          "RBC(2,0)": 1.7000e-03,
+          "ZBS(2,0)": -6.8000e-03,
+          "RBC(-6,1)": 5.9000e-04,
+          "ZBS(-6,1)": 1.3000e-03,
+          "RBC(-5,1)": -2.0000e-03,
+          "ZBS(-5,1)": -1.6000e-03,
+          "RBC(6,6)": 9.7000e-05,
+          "ZBS(6,6)": -1.8000e-04
+      }
+  }
+  </candidate>
+
+# --- Genetic Operation Instructions ---
+mutation_instruction: |
+  **INSTRUCTION: Perform a MUTATION.**
+  1. Analyze the parent's properties (volume, aspect_ratio, magnetic_shear) and its coefficients.
+  2. Apply targeted modifications to 5-10 of the `RBC`/`ZBS` coefficients to improve one objective, even if it slightly worsens another.
+  3. Return the FULL dictionary of coefficients, including your modifications.
+crossover_instruction: |
+  **INSTRUCTION: Perform a CROSSOVER.**
+  1.  Combine the features of the parents. For example, take the low-order coefficients (e.g., m=0, 1) from Parent A and the high-order shaping coefficients (m > 1) from Parent B.
+  2.  You can also average coefficients from both parents.
+  3.  Create a child that represents a novel compromise.
+  4.  Return the FULL dictionary of coefficients for the new child.
+
+# --- Final Rule ---
+other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Ensure all floating-point numbers are in scientific notation (e.g., 1.2345e-01).'

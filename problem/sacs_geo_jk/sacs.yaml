@@ -1,0 +1,54 @@
+# sacs.yaml (V4 - 强化“全局概念”指令)
+description: |
+  You are an expert SACS optimization bot. Your mission is to find a diverse set of optimal jacket structures by modifying their geometry to explore the trade-offs between weight and stress (UC values). Think like an architect to propose conceptually different designs.
+
+# --- Objective Definitions ---
+weight: 'Total structural weight in tonnes. Lower is better.'
+axial_uc_max: 'Maximum axial stress ratio. Goal is to minimize. Must be <= 1.0.'
+bending_uc_max: 'Maximum bending stress ratio. Goal is to minimize. Must be <= 1.0.'
+
+# --- Output Format Requirements ---
+example_output: |
+  You MUST provide your final answer as a single, valid JSON object, and NOTHING else. Enclose the entire JSON object within `<candidate>` and `</candidate>` tags. The JSON must contain a single key "new_code_blocks", with the value being a dictionary of all required SACS code lines. The `GRUP` and `PGRUP` lines must be included but should remain unchanged from the parent.
+  
+  Example of a valid output:
+  <candidate>
+  {
+      "new_code_blocks": {
+          "GRUP_LG1": "GRUP LG1         42.200 1.450 29.0011.6050.00 1    1.001.00     0.500N490.005.00",
+          "JOINT_201": "JOINT  201  -23.50 -37.80-164.00        -1.500        222000",
+          "PGRUP_P01": "PGRUP P01 0.3750I29.000 0.25036.000                                     490.0000"
+      }
+  }
+  </candidate>
+
+# --- Genetic Operation Instructions ---
+mutation_instruction: |
+  INSTRUCTION: Perform a CONCEPTUAL MUTATION.
+  Your role is GLOBAL EXPLORATION. Make large, coordinated, architectural changes based on a strategy.
+  DO NOT MAKE SMALL, RANDOM CHANGES (e.g., +/- 1.0 unit). Another system handles that fine-tuning.
+
+  1. Analyze the parent's performance (weight, axial_uc_max, bending_uc_max).
+  
+  2. Select a creative strategy from the list below to guide your modification. Do not just move joints randomly; move them to serve a larger architectural concept.
+     - Strategy A: "V-Shape Profile". Make the jacket's legs form a more pronounced V or A shape. A wider base can increase stability (lower UC), while a narrower top can save weight.
+     - Strategy B: "X-Bracing Angles". Adjust joint locations to make cross-bracing angles more or less acute. Angles around 45 degrees are often efficient.
+     - Strategy C: "Tiered Setbacks". Make one elevation (e.g., the 400-level joints) significantly narrower or wider than the levels above or below it.
+     - Strategy D: "Targeted Fix". If the parent has a specific weakness (e.g., high bending_uc_max), propose a targeted geometric change to fix it. For example: "Parent has high bending stress. I will adjust joints 401 and 403 to improve the bracing angle at that level."
+
+  3. Based on your chosen strategy, generate the new candidate's code with modified joint coordinates.
+
+crossover_instruction: |
+  INSTRUCTION: Perform a THEMATIC CROSSOVER.
+  Your role is GLOBAL EXPLORATION. Intelligently merge the best *architectural ideas* from both parents.
+  DO NOT simply average coordinates.
+  DO NOT MAKE SMALL, RANDOM CHANGES. Another system handles fine-tuning.
+
+  1. Analyze both parents. Identify the best conceptual feature of each. For example, "Parent A has a very wide and stable base (good V-Shape), while Parent B has a very efficient and lightweight top section."
+  
+  2. Create a child that hybridizes these concepts. This is not just averaging coordinates; it's about intelligently merging the best architectural ideas from both parents to create a superior child. For instance, combine the wide base coordinates from Parent A with the narrow top section coordinates from Parent B.
+  
+  3. Do not modify any GRUP or PGRUP blocks.
+
+# --- Final Rule ---
+other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Maintain the fixed-width format perfectly.'

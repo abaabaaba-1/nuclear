@@ -1,12 +1,11 @@
 exper_name: "constellaration problem 3"
 description: "Multi-objective ideal-MHD stable QI stellarators"
-save_dir: "/home/hp/src/mollm_results/fusion"
-save_suffix: "0807"
-resume: True
+save_dir: "./moo_results/fusion"
+save_suffix: "1023"
+resume: False
 
 model:
-  name: zgca,gemini-2.5-flash-nothinking  #,gemini-2.5-flash-nothinking     gpt-4-0125-preview  gpt-4o-2024-05-13
-  # name2: zgca,gpt-4o-2024-05-13
+  name: zgca,gemini-2.5-flash-nothinking
   prompt_module: Prompt
   experience_prob: 0.5
   crossover_prob: 0.8
@@ -16,7 +15,7 @@ use_au: False  # If True, this will use au model, set to false if you only want 
 
 goals: [l_delta_b,aspect_ratio]
 optimization_direction: [max,min]
-prompt_info_path: /home/hp/src/MOLLM/problem/fusion/prompt_info.yaml   
+prompt_info_path: problem/fusion/prompt_info.yaml   
 ### Important ###
 evalutor_path: problem.fusion.evaluator
 

@@ -1,52 +1,23 @@
-# problem/sacs/sacs.yaml (V2 - Unlocked I-Beam Optimization)
+# problem/sacs/sacs.yaml (已修改 - 引入分层探索角色)
 description: |
-  You are an expert SACS (Structural Analysis Computer System) optimization bot. Your ONLY task is to modify existing SACS code blocks based on my instructions. You MUST generate a complete, new set of SACS code lines.
+  You are an expert SACS (Structural Analysis Computer System) optimization bot. Your mission is to modify SACS code blocks to find a diverse set of optimal jacket structures by balancing three competing objectives: minimizing `weight`, `axial_uc_max`, and `bending_uc_max`.
+  Your primary goal is to find designs that are significantly lighter than the current ones, which are too conservative. You must challenge the existing solutions to break out of the local optimum.
 
-  # --- START: NEW CONTEXTUAL INFORMATION ---
-  **Your Goal: Mixed-Mode Structural Optimization**
-  You are modifying the geometric properties of a jacket structure to achieve three competing objectives.
-  1.  **Minimize `weight`**: A lighter structure is cheaper.
-  2.  **Minimize `axial_uc_max`**: Maximum axial stress ratio. Key for leg/brace stability.
-  3.  **Minimize `bending_uc_max`**: Maximum bending stress ratio. Key for resisting environmental loads.
+  # --- Supporting Context & Variable Effects ---
+  You are modifying the geometric properties of a jacket structure.
+  - To reduce `weight`: Decrease member sizes (OD, WT) or choose lighter I-Beams (e.g., W24X94 is lighter than W24X162).
+  - To reduce `axial_uc_max` or `bending_uc_max`: Increase member sizes or choose heavier I-Beams.
+  - **Your core task is to find the best trade-off: The lightest possible structure that remains feasible (UC <= 1.0).**
 
-  **CRITICAL CONSTRAINT: The `max_uc` (overall stress ratio) MUST NOT exceed 1.0.** An efficient design has a `max_uc` approaching 0.9-0.95.
+  # --- CRITICAL DIRECTIVE: The SACS Fixed-Width Format ---
+  You MUST adhere strictly to the SACS fixed-width format. Preserve all spacing and alignments from the parent examples.
 
-  **The Variables You Control and Their Effects:**
-  You have TWO types of members you can change:
+# --- Objective Definitions ---
+weight: 'Total structural weight in tonnes. Goal: Minimize.'
+axial_uc_max: 'Maximum axial stress ratio. Goal: Minimize. MUST be <= 1.0 for a valid design.'
+bending_uc_max: 'Maximum bending stress ratio. Goal: Minimize. MUST be <= 1.0 for a valid design.'
 
-  1.  **Tubular Members (`GRUP` with OD/WT):**
-      - To reduce `axial_uc_max`: Increase Cross-Sectional Area (increase OD and/or WT).
-      - To reduce `bending_uc_max`: Increase Moment of Inertia (increasing OD is most effective).
-      - Trade-off: Both actions increase `weight`.
-
-  2.  **I-Beam Members (`GRUP` with Section Name, e.g., W24X162):**
-      - **YOU CAN NOW CHANGE THESE!** You can select a different I-beam section from a predefined library.
-      - **How to Change:** Replace the section name (e.g., `W24X162`) with another from the W24 series. A smaller number after the "X" means a lighter beam (e.g., `W24X94` is lighter than `W24X162`), which reduces `weight` but also reduces strength.
-      - **Strategy:** If `bending_uc_max` for the platform is high, choose a heavier I-beam (e.g., `W24X176`). If all UCs are very low and you need to save weight, choose a lighter I-beam (e.g., `W24X117`).
-
-  **If all UC values are very low (e.g., below 0.5), you have significant room to reduce `weight` by making members lighter (reducing OD/WT, or choosing a lighter I-beam section).**
-  # --- END: NEW CONTEXTUAL INFORMATION ---
-
-  **CRITICAL DIRECTIVE: The SACS Fixed-Width Format**
-  - **GRUP Card Format (Tubular):**
-    - `Col 1-4`:   'GRUP'
-    - `Col 6-10`:  Group Name (5 chars, left-aligned)
-    - `Col 19-24`: Outer Diameter (OD) (6 chars, right-aligned, 3 decimal places. Example: ' 42.000')
-    - `Col 26-30`: Wall Thickness (WT) (5 chars, right-aligned, 3 decimal places. Example: ' 1.375')
-  
-  - **GRUP Card Format (I-Beam):**
-    - Preserve the format exactly, only changing the section name (e.g., `W24X162`). Example: `GRUP W01 W24X162              29.0111.2035.97 1    1.001.00     0.500 490.00`
-
-  - **PGRUP Card Format:**
-    - `Col 1-5`:   'PGRUP'
-    - `Col 7-9`:   Group Name (3 chars, left-aligned)
-    - `Col 12-17`: Plate Thickness (6 chars, left-aligned, 4 decimal places. Example: '0.3750')
-
-# ... (The rest of the file: objective definitions, output format, instructions, etc. are correct and can remain as they are)
-
-weight: 'Total structural weight in tonnes. Lower is better.'
-axial_uc_max: 'Maximum axial stress ratio across all members. Lower is better.'
-bending_uc_max: 'Maximum bending stress ratio (from either yy or zz axis) across all members. Lower is better.'
+# --- Output Format Requirements ---
 example_output: |
   You MUST provide your final answer as a single, valid JSON object, and NOTHING else. Enclose the entire JSON object within `<candidate>` and `</candidate>` tags. The JSON must contain a single key "new_code_blocks", with the value being a dictionary of all required SACS code lines. 
   
@@ -60,11 +31,36 @@ example_output: |
       }
   }
   </candidate>
-mutation_instruction: |
-  **INSTRUCTION: Perform a MUTATION.**
-  1. Apply random modifications independently to each parent’s parameters without mixing them, you can largely change the values if appropriate.
-crossover_instruction: |
-  **INSTRUCTION: Perform a CROSSOVER.**
-  1.  Based on the objective values and your knowledge, combine parameters from two parents to generate new offspring by exchanging segments or values, you may also slightly modify the result to make it reasonable.
-other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Maintain the fixed-width format perfectly.'
 
+# --- Genetic Operation Instructions ---
+mutation_instruction: |
+  **INSTRUCTION: Perform a Trade-off Mutation.**
+  1.  Analyze the parent design.
+  2.  Make targeted modifications to its member properties to create a new, slightly different trade-off. For example, slightly reduce the size of several members to decrease weight, accepting a small increase in UC values. Create a new candidate that is better in at least one objective.
+
+crossover_instruction: |
+  **INSTRUCTION: Perform a Crossover.**
+  1.  Combine the best features of the two parents. For example, use the strong leg design from Parent A and the lightweight brace design from Parent B.
+  2.  Create a child that represents a novel compromise between the parents' characteristics, aiming for a solution non-dominated by either parent.
+
+# --- START: Calibrated Exploration Instructions ---
+explore_instruction_A: |
+  **INSTRUCTION: Boundary Explorer Role.**
+  Your task is to probe the absolute limits of performance.
+  1.  Generate one new candidate design.
+  2.  Your primary goal is to **aggressively minimize weight**.
+  3.  To achieve this, you are explicitly **allowed to create a design that might fail**. Specifically, you can propose a design where you anticipate the `axial_uc_max` or `bending_uc_max` might rise to approximately **1.2**.
+  4.  This is a high-risk exploration. Be bold and make significant cuts to member sizes. This helps us understand the true boundary of feasibility.
+
+explore_instruction_B: |
+  **INSTRUCTION: Experience Challenger Role.**
+  Your task is to question the established "best practices" to prevent getting stuck.
+  1.  Analyze the provided experience summary.
+  2.  Identify a key pattern mentioned (e.g., "optimal thickness for GRUP_LG6 is between 0.8 and 1.0").
+  3.  Generate one new candidate that **deliberately and slightly violates** this specific piece of experience. For example, try a thickness of `0.75` for GRUP_LG6 while keeping other parameters similar to known good designs.
+  4.  The goal is to create a "nearby" challenger to see if the experience is truly a hard rule or just a local optimum.
+
+# --- END: Calibrated Exploration Instructions ---
+
+# --- Final Rule ---
+other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Maintain the fixed-width format perfectly.'

@@ -1,28 +1,79 @@
 {
-  "version": "0.2.0",
   "configurations": [
+    // --- 1. SACS Geometry (Platform) ---
     {
-      "name": "Python: New SACS Optimization",
+      "name": "Python: SACS Geo (Platform)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/main.py",
       "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.sacs",
       "args": [
-        "sacs/config.yaml"
+        "sacs_geo_pf/config.yaml"
       ],
       "cwd": "${workspaceFolder}"
     },
     {
-      "name": "Python: Resume SACS Optimization",
+      "name": "Python: SACS Geo (Jacket)",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/main.py",
       "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.sacs",
       "args": [
-        "sacs/config.yaml",
-        "--resume"
+        "sacs_geo_jk/config.yaml"
       ],
       "cwd": "${workspaceFolder}"
-    }
+    },
+    // --- 3. SACS Section (Platform) ---
+    {
+      "name": "Python: SACS Section (Platform)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.sacs",
+      "args": [
+        "sacs_section_pf/config.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    // --- 4. SACS Section (Jacket) ---
+    {
+      "name": "Python: SACS Section (Jacket)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.sacs",
+      "args": [
+        "sacs_section_jk/config.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "nuclear",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.vme",
+      "args": [
+        "fusion/config.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "vmec",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env.vme",
+      "args": [
+        "stellarator_vmec/config.yaml"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
   ]
 }

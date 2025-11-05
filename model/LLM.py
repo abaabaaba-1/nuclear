@@ -2,6 +2,14 @@ import os
 import requests
 from openai import AzureOpenAI,OpenAI
 import time
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    _dotenv_path = os.getenv('LLM_ENV_FILE')
+    if _dotenv_path and os.path.exists(_dotenv_path):
+        load_dotenv(dotenv_path=_dotenv_path, override=True)
+except Exception:
+    pass
 #from azure.identity import AzureCliCredential, ChainedTokenCredential, DefaultAzureCredential, get_bearer_token_provider
 def AzureCliCredential():
     pass
@@ -11,9 +19,12 @@ def DefaultAzureCredential():
     pass
 def get_bearer_token_provider():
     pass
-# import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
 class LLM:
-    def __init__(self,model='chatgpt'):
+    def __init__(self,model='chatgpt',config=None):
         
         print(f'using model: {model}')
         self.model_choice = model
@@ -26,10 +37,13 @@ class LLM:
         print('model choice:',self.model_choice)
         self.input_tokens = 0
         self.output_tokens = 0
+        self.config = config
+        self.t = self.config.get('model.temperature',default=None)
+        self.user_tag = self.config.get('project.tag',default=os.getenv('LLM_USER_TAG'))
 
     def proxy_chat(self,content):
-        base_url = "http://35.220.164.252:3888/v1/chat/completions"
-        api_key = "sk-zIBA7uyzMr9cGy6VhCMNAZ5BLqp0MGG3lz7pfhY5qBHGW6CW"
+        base_url = os.getenv('LLM_BASE_URL', self.config.get('model.base_url', default='http://localhost:8000/v1/chat/completions'))
+        api_key = os.getenv('LLM_API_KEY', self.config.get('model.api_key', default=''))
         
         
         headers = {
@@ -37,23 +51,38 @@ class LLM:
             "Authorization": f"Bearer {api_key}"  
         }
         
-        data = {
-            "model": self.model_choice, # 可以替换为需要的模型
-            "messages": [
-                {"role": "user", "content": content}
-            ],
-            "thinking_config": {"thinking_budget": 0}
-            #"temperature": 0.7 # 自行修改温度等参数
-        }
+        if self.t is not None:
+            data = {
+                "model": self.model_choice, # 可以替换为需要的模型
+                "messages": [
+                    {"role": "user", "content": content}
+                ],
+                
+                "temperature": self.t # 自行修改温度等参数
+            }
+        else:
+            data = {
+                "model": self.model_choice, # 可以替换为需要的模型
+                "messages": [
+                    {"role": "user", "content": content}
+                ],
+                
+            }
+        if self.user_tag:
+            data["user"] = self.user_tag
         while True:
             try:
                 response = requests.post(base_url, headers=headers, json=data)
-
+                response.raise_for_status()  
                 if response.status_code != 200:
                     print(f"Request failed with status code {response.status_code}")
-                    print("Response:", response.text)
-                    print('retry in 20s ')
-                    time.sleep(20)
+                    print("Response headers:", response.headers)
+                    try:
+                        # 尝试解析 JSON 返回
+                        print("Response JSON:", response.json())
+                    except Exception:
+                        # 如果不是 JSON，就直接打印文本
+                        print("Response text:", response.text)
                 else:
                     break
             except Exception as e:
@@ -62,6 +91,10 @@ class LLM:
         response = response.json()
         self.input_tokens += response['usage']['prompt_tokens']
         self.output_tokens += response['usage']['completion_tokens']
+        #print('prompt: \n\n',content)
+        #print('response: \n',response['choices'][0]['message']['content'])
+        #print('='*60)
+        #assert False
         return response['choices'][0]['message']['content']
 
     def _init_chat(self,model):
@@ -85,7 +118,9 @@ class LLM:
             return self._init_deepseek()
 
     def _init_deepseek(self):
-        client = OpenAI(api_key="sk-59a5fa848a4a47fcbcfde13fd13b2af5", base_url="https://api.deepseek.com")
+        api_key = os.getenv('DEEPSEEK_API_KEY', self.config.get('model.deepseek.api_key', default=''))
+        base_url = os.getenv('DEEPSEEK_BASE_URL', self.config.get('model.deepseek.base_url', default='https://api.deepseek.com'))
+        client = OpenAI(api_key=api_key, base_url=base_url)
         return client
     
     def deepseek_chat(self,content):
@@ -100,7 +135,9 @@ class LLM:
         return response.choices[0].message.content
     
     def _init_gemini(self):
-        genai.configure(api_key="AIzaSyCnqH8ekkJkr0Z_t6qeDAgRtWs6Gy4AuBk")
+        if genai is None:
+            raise RuntimeError("google.generativeai (genai) 未安装或导入失败。请先安装 `google-generativeai` 包。")
+        genai.configure(api_key=os.getenv('GEMINI_API_KEY', self.config.get('model.gemini.api_key', default='')))
         model = genai.GenerativeModel("gemini-1.5-flash")
         return model
     
@@ -111,8 +148,8 @@ class LLM:
 
     def _init_llama(self):
         client = OpenAI(
-            base_url="http://localhost:8000/v1",
-            api_key="token-abc123",
+            base_url=os.getenv('LLAMA_BASE_URL', self.config.get('model.llama.base_url', default='http://localhost:8000/v1')),
+            api_key=os.getenv('LLAMA_API_KEY', self.config.get('model.llama.api_key', default='token-abc123')),
         )
         return client
     
