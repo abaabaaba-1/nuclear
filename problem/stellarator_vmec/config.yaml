@@ -7,6 +7,8 @@ resume: False
 
 model:
   name: zgca,gemini-2.5-flash-nothinking 
+  base_url: http://35.220.164.252:3888/v1/chat/completions
+  api_key: sk-UQSdTgxybYPRjg0WBq3v6NCxMMDNuIanMCdHy6mp9cGWPCTs
   prompt_module: Prompt
   experience_prob: 0.5
   crossover_prob: 0.7
