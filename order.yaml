@@ -1,0 +1,42 @@
+cd /home/dataset-assist-0/MOLLM-main
+
+conda activate ./MOLLM_env
+
+./check_cpu.sh
+
+python /home/dataset-assist-0/MOLLM-main/baseline_nsga2.py problem/stellarator_vmec/config.yaml
+
+
+
+python /home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/plot_vmec_checkpoint.py \
+  --pkl "/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/mols/volume_aspect_ratio_magnetic_shear_stellarator_vmec_3_obj_42.pkl" \
+  --baseline "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/input.w7x" \
+  --outdir "/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/plots" \
+  --topk 3 \
+
+
+
+
+
+scp -P 30250 batchcom@wenhao-server:"/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/mols/volume_aspect_ratio_magnetic_shear_stellarator_vmec_3_obj_42_pareto_3d.png" C:\Users\admin\Downloads\
+scp -r -P 30250 batchcom@wenhao-server:"/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/plots" C:\Users\admin\Downloads\
+
+
+
+python baseline_ga.py problem/stellarator_vmec/config_ga.yaml
+python baseline_nsga2.py problem/stellarator_vmec/config_nsga2.yaml
+python baseline_sms.py problem/stellarator_vmec/config_sms.yaml
+python baseline_moead.py problem/stellarator_vmec/config_moead.yaml
+
+python run_all_baselines.py --baselines nsga2 --seeds 120 121 122
+python run_all_baselines.py --baselines ga --seeds 120 121 122
+python run_all_baselines.py --baselines nsga2 --seeds 200 201
+
+
+python main.py stellarator_vmec/config.yaml --seed 120
+
+python run_all_baselines.py --problem vmec --baselines ga nsga2 --seeds 42 43 44
+python run_all_baselines.py --problem coil --baselines ga nsga2 sms moead --seeds 70
+python run_all_baselines.py --problem coil --baselines ga --seeds 70
+
+ 

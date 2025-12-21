@@ -398,7 +398,7 @@ class MOO:
         parents = [random.sample(population, 2) for _ in range(offspring_times)]
         
         # ... (rest of generate_offspring is identical) ...
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(self.mating, parent_list=p) for p in parents]
             results = []
             for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Generating Offspring"):
@@ -448,7 +448,8 @@ class MOO:
     def select_next_population(self,pop_size):
         if not self.mol_buffer: return []
         whole_population = [i[0] for i in self.mol_buffer]
-        return nsga2_so_selection(whole_population, pop_size) if len(self.property_list)>1 else so_selection(whole_population,pop_size)
+        # Fixed: Use proper NSGA-II selection
+        return nsga2_selection(whole_population, pop_size) if len(self.property_list)>1 else so_selection(whole_population,pop_size)
 
     def load_ckpt(self,store_path):
         print('Resuming training...')
@@ -519,7 +520,7 @@ if __name__ == "__main__":
     # 1. 加载配置
     print(f"Loading configuration from: {args.config}")
     cfg_path = args.config
-    if cfg_path.startswith('problem/'): cfg_path = cfg_path[len('problem/') :]
+    # if cfg_path.startswith('problem/'): cfg_path = cfg_path[len('problem/') :]  <-- Removed
     config = ConfigLoader(cfg_path)
 
     # 2. 初始化评估系统 (Rewarding System)

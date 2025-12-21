@@ -20,6 +20,17 @@ class VmecFileModifier:
     def _create_backup(self) -> Optional[Path]:
         """Creates a backup of the current input file."""
         try:
+            # 如果备份目录中有太多备份文件（>20），清理最旧的
+            if self.backup_dir.exists():
+                backup_files = sorted(self.backup_dir.glob(f"{self.input_file_path.name}.backup_*"))
+                if len(backup_files) > 20:
+                    # 删除最旧的备份，只保留最新的20个
+                    for old_backup in backup_files[:-20]:
+                        try:
+                            old_backup.unlink()
+                        except Exception:
+                            pass
+            
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_path = self.backup_dir / f"{self.input_file_path.name}.backup_{ts}"
             shutil.copy2(self.input_file_path, backup_path)
@@ -47,7 +58,8 @@ class VmecFileModifier:
                 content = f.read()
             
             # 正则表达式匹配 RBC(m,n)=value 和 ZBS(m,n)=value
-            pattern = re.compile(r"([RZ]BS\s*\(\s*[-]?\d+\s*,\s*[-]?\d+\s*\)\s*=\s*([-+]?\d+\.\d+e[-+]?\d+))", re.IGNORECASE)
+            # 注意：[RZ]B[CS] 匹配 RBC、RBS、ZBC、ZBS
+            pattern = re.compile(r"([RZ]B[CS]\s*\(\s*[-]?\d+\s*,\s*[-]?\d+\s*\)\s*=\s*([-+]?\d+\.\d+e[-+]?\d+))", re.IGNORECASE)
             
             matches = pattern.finditer(content)
             
@@ -71,8 +83,9 @@ class VmecFileModifier:
         LLM 提供的 new_coefficients 字典中的值将替换文件中的值。
         """
         backup_path = self._create_backup()
+        # 备份失败时只记录警告，但继续执行替换操作（不阻塞）
         if not backup_path:
-            return False
+            self.logger.warning("Backup failed (disk quota exceeded?), but continuing with replacement anyway.")
 
         try:
             with open(self.input_file_path, 'r', encoding='utf-8') as f:
@@ -85,8 +98,9 @@ class VmecFileModifier:
                 # 规范化 key，例如 "RBC( 1, 0)" -> "RBC(1,0)"
                 norm_key = key.strip().replace(" ", "")
                 
-                # 匹配 "RBC(1,0)"
-                match_key = re.match(r"([RZ]BS)\s*\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)", norm_key)
+                # 匹配 "RBC(1,0)" 或 "ZBS(1,0)" 等
+                # 注意：[RZ]B[CS] 匹配 RBC、RBS、ZBC、ZBS
+                match_key = re.match(r"([RZ]B[CS])\s*\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)", norm_key, re.IGNORECASE)
                 if not match_key:
                     self.logger.warning(f"Invalid coefficient key format: '{key}'. Skipping.")
                     continue
@@ -119,5 +133,13 @@ class VmecFileModifier:
 
         except Exception as e:
             self.logger.critical(f"Fatal error during coefficient replacement: {e}", exc_info=True)
-            self._restore_from_backup(backup_path)
+            # 只有在备份成功的情况下才尝试恢复
+            if backup_path is not None:
+                self._restore_from_backup(backup_path)
+            else:
+                # 如果没有备份，尝试用项目目录下的 input.w7x.master 进行恢复（若存在）
+                master_candidate = self.project_path / "input.w7x.master"
+                if master_candidate.is_file():
+                    shutil.copy2(master_candidate, self.input_file_path)
+                    self.logger.warning("Restored from fallback input.w7x.master due to missing backup.")
             return False

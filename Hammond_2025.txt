@@ -1,0 +1,1897 @@
+PAPER • OPEN ACCESS
+A framework for discrete optimization of stellarator
+coils
+To cite this article: K.C. Hammond 2025 Nucl. Fusion 65 046012
+ 
+View the article online for updates and enhancements.
+You may also like
+Visual appearance of wireframe objects in
+special relativity
+Thomas Müller and Sebastian Boblest
+-
+Evaluation of regional work from ECG-
+gated SPECT images through solution of
+equations of continuity for fluids--
+mechanical cardiac work calculated using
+thin wall model
+Hisatoshi Maeda
+-
+The potential of DNA origami to build
+multifunctional materials
+Kosti Tapio and Ilko Bald
+-
+ 
+This content was downloaded from IP address 35.212.189.180 on 13/11/2025 at 05:27
+International Atomic Energy Agency
+Nuclear Fusion
+Nucl. Fusion65 (2025) 046012 (21pp) https://doi.org/10.1088/1741-4326/adbb02
+A framework for discrete optimization of
+stellarator coils
+K.C. Hammond
+Princeton Plasma Physics Laboratory, Princeton, NJ, United States of America
+E-mail: khammond@pppl.gov
+Received 29 November 2024, revised 6 February 2025
+Accepted for publication 27 February 2025
+Published 11 March 2025
+Abstract
+Designing magnets for three-dimensional plasma confinement is a key task for advancing the
+stellarator as a fusion reactor concept. Stellarator magnets must produce an accurate field while
+leaving adequate room for other components and being reasonably simple to construct and
+assemble. In this paper, a framework for coil design and optimization is introduced that enables
+the attainment of sparse magnet solutions with arbitrary restrictions on where coils may be
+located. The solution space is formulated as a ‘wireframe’ consisting of a mesh of
+interconnected wire segments enclosing the plasma. Two methods are developed for optimizing
+the current distribution on a wireframe: Regularized Constrained Least Squares, which uses a
+linear least-squares approach to optimize the currents in each segment, and Greedy Stellarator
+Coil Optimization, a fully discrete procedure in which loops of current are added to the mesh
+one by one to achieve the desired magnetic field on the plasma boundary. Examples are
+presented of solutions obtainable with each method, some of which achieve high field accuracy
+while obeying spatial constraints that permit easy assembly.
+Keywords: stellarator, coil, optimization, discrete
+(Some figures may appear in colour only in the online journal)
+1 . Introduction
+Stellarators aim to confine hot, dense plasmas using a mag-
+netic field generated entirely by external magnets, without
+the need to drive current within the plasma. For this concept
+to work successfully, the magnetic field must be carefully
+shaped in order to ensure that plasma particles and energy are
+well confined [1]. Designing magnets to produce a field that
+meets these shaping requirements typically requires numerical
+optimization. Optimizing stellarator magnets involves three
+interconnected components: (1) an objective function that
+quantifies how well the desired properties have been achieved
+Original Content from this work may be used under the
+terms of theCreative Commons Attribution 4.0 licence. Any
+further distribution of this work must maintain attribution to the author(s) and
+the title of the work, journal citation and DOI.
+by a given design, (2) a framework that maps a set of numer-
+ical parameters to a magnet design, and (3) an algorithm that
+adjusts the design parameters in order to find the best possible
+value of the objective function.
+With regard to the second component, magnet optimiza-
+tion problems provide extensive flexibility because there are
+infinitely many distributions of external sources that can pro-
+duce a given magnetic field in the vicinity of the plasma
+[2]. In most stellarator designs these sources are electromag-
+netic coils, although other sources are possible, including per-
+manent magnets [3] and superconducting monoliths [4]. For
+an optimization problem to be tractable, the design frame-
+work can only sample a portion of this infinite solution space.
+Correspondingly, many such frameworks are possible, each
+one encompasing different portions of the space.
+One commonly-used framework entails the definition of a
+toroidal winding surfacethat encloses the plasma and carries
+a surface current distribution. The surface current can be rep-
+resented by a scalar current potential function, which is most
+1741-4326/25/046012+21$33.00 Printed in the UK 1 © 2025 The Author(s). Published by IOP Publishing Ltd on behalf of the IAEA
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+often parametrized with Fourier coefficients. These paramet-
+ers can be optimized with a linear least-squares approach in
+codes such asNescoil [5] or Regcoil [2]. The level curves
+of the optimized current distribution can form the basis for the
+design of coils. While the standard application of this frame-
+work holds the shape of the winding surface fixed, further
+improvements can be gained by optimizing the winding sur-
+face itself and/or by directly optimizing the paths taken by the
+coils along the surface [6–8].
+In another framework, the field sources are a set of current-
+carrying space curves that directly represent the shapes of
+coils. The space curves may be parametrized, for example,
+with Fourier coefficients [9, 10] or spline knots [11–13].
+The fidelity of the framework to realistic coil design may be
+improved by modeling coils with finite dimensions [14, 15].
+Space curve parameterizations have been optimized with non-
+linear quasi-Newton codes such asFocus [10] or a genetic
+algorithm as inGospel [12]. Compared to the winding sur-
+face approach, the space curve approach has the advantage that
+the geometry of each coil can be independently parametrized,
+and optimizers can more easily explore the three-dimensional
+volume around the plasma. On the other hand, the space curve
+approach has less topological flexibility, as the number of coils
+must be predefined.
+The exploration of permanent magnet stellarator designs
+has led to the development of new frameworks for paramet-
+rization and optimization. In some cases, the concept of the
+winding surface is extended to represent a surface of magnet-
+ized material of varying thickness. Such surfaces have been
+optimized using iterated linear least-squares procedures [16–
+18]. In other frameworks, the solution space consists of an
+array of independently parametrized magnetic dipoles with
+arbitrary spatial positions, for which the dipole moments are
+then optimized using nonlinear continuous procedures [19,
+20], and subsequently discretized to minimize the number of
+unique magnet types [21–23]. Magnetic dipole arrays have
+also been constructed and optimized using discrete greedy
+algorithms [24–27].
+The representation of permanent magnet solutions as arrays
+of independent dipoles illustrated the advantages of a spa-
+tially local parametrization, which made it easier to design
+magnet distributions around specific obstacles and optimize
+for sparsity. More recently, spatially local parametrizations
+have been explored for distributions of current density as well.
+Examples include current potential patches defined on 2D
+winding surfaces [28] and current voxels that fill arbitrary 3D
+volumes [29].
+This paper introduces a new framework for optimizing dis-
+crete distributions of current with a spatially local paramet-
+rization. The framework, hereafter referred to as awireframe,
+consists of an interconnected network of current-carrying wire
+segments. The parameters for the distribution are simply the
+currents within each segment; therefore it is straightforward
+to block off segments lying in arbitrary regions of design
+space to leave room for other components. While examples
+in this paper all use wireframes that exhibit two-dimensional
+topology similar to that of a winding surface, wireframes can
+in principle be designed to fill arbitrary three-dimensional
+volumes.
+This framework enables multiple optimization strategies,
+including a rapid linear least-squares approach and a fully dis-
+crete greedy approach analogous to greedy algorithms pre-
+viously used with permanent magnets. As will be demon-
+strated, the greedy optimizer in particular can be utilized to
+obtain sparse solutions with arbitrary spatial constraints, yield-
+ing starting points for convenient coil designs that could not be
+easily found using previous methods.
+The paper will be organized as follows. Section2 will
+introduce the concept of the wireframe in detail along with
+the governing equations for calculating the field and setting
+constraints on its current distribution. Section3 will describe
+the linear Regularized Constrained Least Squares (RCLS)
+optimization method along with some example solutions that
+achieve high field accuracy on a relatively coarse wireframe.
+Section 4 will describe the discrete Greedy Stellarator Coil
+Optimization (GSCO) algorithm and present a number of basic
+use cases that lead to coil solutions with potentially convenient
+properties.
+2. The wireframe
+The wireframe as defined in this paper is a parametrized
+solution space for a spatial distribution of electric current.
+Fundamentally, it consists of a set of interconnected straight
+segments of filamentary, current-carrying ‘wire’. Segments
+connect to one another atnodes, and in turn, the location and
+orientation of each segment is defined by the positions of the
+two nodes that form its endpoints. Each segment carries a cer-
+tain current. Thus, the spatial current distribution in a wire-
+frame containing N segments can be fully specified by the
+positions of its nodes, the pairs of nodes that each segment
+is connected to, and the current carried by each segment.
+An example of a wireframe is depicted in figure1. In this
+case, the segments of the wireframe join to form a toroidal
+mesh that encloses a stellarator plasma. The wireframe is con-
+structed by first defining a toroidal reference surface around
+the plasma. A 2D grid of points spaced regularly in the tor-
+oidal and poloidal angles is then placed on the reference sur-
+face; these points are defined as the positions of the nodes.
+The segments are then constructed along straight lines that
+join adjacent nodes in the toroidal and poloidal grid dimen-
+sions. Segments that connect adjacent nodes in the toroidal
+dimension will be referred to astoroidal segments, whereas
+segments that connect adjacent nodes in the poloidal dimen-
+sion will be referred to aspoloidal segments. The wireframes
+used in this paper will all have toroidal topology, although in
+general wireframes can have other topologies. Furthermore,
+the wireframes studied here will exhibit stellarator symmetry;
+thus, for a stellarator withNfp toroidal field periods, a wire-
+frame is fully specified by the segments and currents within
+one half-period.
+The magnetic field at a pointp due to a wireframe seg-
+ment between nodes located at pointsp1 and p2 can be derived
+2
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 1 .Example of a wireframe with toroidal topology (gray)
+enclosing a plasma (magenta).
+from the Biot-Savart law for a filamentary current and is given
+by [30, 31]
+B = µ0I
+4π
+( |r1| + |r2|
+|r1||r2|(|r1||r2| + r1 · r2)
+)
+r1 × r2, (1)
+where µ0 is the vacuum permeability constant,I is the current
+carried by the segment with positive current defined as flowing
+from p1 to p2, r1 = p − p1, andr2 = p − p2. A derivation of
+this expression is provided in appendixA.
+An important quantity for evaluating the suitability of an
+externally-generated magnetic field to confine a stellarator
+plasma is the normal component of the field on the boundary of
+the desired plasma. Following equation (1), the normal com-
+ponent Bni of the magnetic field from the wireframe at a test
+point pi on the plasma boundary can be expressed as a linear
+combination of the currents in the wireframe’sN segments,
+Bni =
+N∑
+j=1
+Gijxj, (2)
+where xj is the current in thejth segment of the wireframe and
+Gij contains the geometric terms relating the current to the nor-
+mal field component:
+Gij = µ0
+4π
+( |r1ij| + |r2ij|
+|r1ij||r2ij|(|r1ij||r2ij| + r1ij · r2ij)
+)
+(r1ij × r2ij) · ˆni.
+(3)
+Here, ˆni is the unit normal vector at theith test point on
+the plasma boundary; whiler1ij = pi − p1j and r2ij = pi − p2j,
+where p1j and p2j are the endpoints of thejth segment.
+The methods introduced in this paper seek to optimize the
+current distribution in the wireframe while keeping its geo-
+metry fixed. Therefore, the optimization problem consists of
+finding an optimal set of currentsx for each segment in the
+wireframe.
+While x contains N elements—one current for each
+segment—in general the problem has fewer thanN degrees
+of freedom due to constraints on the current distribution. For
+example, it is important to impose constraints in order to avoid
+charge accumulation at the nodes. In other words, the current
+Figure 2. Schematic of one half-period of a wireframe along with
+the plasma boundary in magenta and an example diagnostic port in
+the form of the gray tube. Segments inSpol (equation (5)) relevant to
+the poloidal current constraint are shown in red. Segments inStor
+(equation (6)) relevant to the toroidal current constraint are shown in
+blue. Segments constrained individually to carry zero current (i.e. to
+avoid collisions with the port) are shown in orange.
+flowing into each node should equal the current flowing out.
+For a given node with the labelk, this can be expressed as a
+linear equality constraint:
+∑
+j∈S+k
+xj −
+∑
+j∈S−k
+xj = 0, (4)
+where S+k is the set of segments for which positive current
+flows inward toward nodek and S−k is the set of segments for
+which positive current flows outward from nodek. These con-
+straints will be referred to ascontinuity constraintsbecause
+they impose current continuity and prevent charge accumula-
+tion within the wireframe.
+Additional constraints may be imposed to ensure that
+current distributions exhibit certain desired properties. For
+example, a poloidal current constraintimposes a value for
+the net poloidal currentIpol flowing within the wireframe. This
+ensures that average toroidal magnetic fieldBt at a given major
+radius R within the wireframe has the valueµ0Ipol/(2π R).
+Assuming that the continuity constraints of equation (4) are
+in effect, this constraint can be formulated by requiring that
+the sum of the currents flowing through all of the poloidal seg-
+ments within a row extending toroidally around the wireframe
+grid equalIpol, as shown by the red segments in figure2. This
+constitutes one additional linear equality constraint,
+∑
+j∈Spol
+xj = Ipol, (5)
+where Spol contains the indices of the poloidal segments. While
+it is sufficient in principle to apply the constraint to the sum
+the segment currents in a single toroidal row, two rows must
+be included in this case to uphold the stellarator symmetry of
+the current distribution.
+Similarly, atoroidal current constraintmay be imposed to
+require that the wireframe carry a certain net currentItor in the
+toroidal dimension. SettingItor to zero prevents current from
+3
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+flowing helically around the torus, ensuring that the wireframe
+has no net dipole moment. On the other hand, ifItor and Ipol are
+both set to specific values, this will enforce a certain helicity in
+the current distribution. Assuming the continuity constraints
+(equation (4)) apply,Itor can be constrained by ensuring that
+the sum of the currents through the toroidal segments in one
+poloidal column equalsItor, as shown by the blue segments in
+figure 2. This constitutes another linear equality constraint,
+∑
+j∈Stor
+xj = Itor, (6)
+where Stor contains the indices of the toroidal segments in one
+poloidal column.
+Finally, it may be desired to prevent any current from
+flowing within a given segment. This would be the case, for
+example, if the segment lies in a spatial region that is reserved
+for a component such as a port for plasma diagnostics or heat-
+ing systems. Such asegment constraintfor a given segment
+with indexj may be expressed simply as
+xj = 0. (7)
+An example set of constrained segments is shown in orange in
+figure 2 to avoid the presence of currents in the vicinity of a
+port.
+Since the constraints described above are all linear equality
+constraints, any combination of these constraints applicable
+to a given wireframe may be expressed comprehensively as a
+system of linear equations,
+Cx = d, (8)
+where C is a matrix containing the coefficients ofxj from the
+left-hand sides of equations (4)–(7) andd contains the terms on
+the right-hand sides of these equations. Formulating the con-
+straints in this way enables the use of constrained linear optim-
+ization procedures, such as the one described in section3.
+3. Regularized constrained least squares (RCLS)
+The current distribution in the wireframe can be optim-
+ized with many different techniques, each yielding solutions
+with distinct characteristics and features. This paper will
+describe two such optimization methods, each of which works
+to minimize an objective functionf through adjustment of
+the currents x in the segments of the wireframe. The first
+method, described in this section, will be calledRegularized
+Constrained Least Squares(RCLS). It utilizes a linear least-
+squares technique that has the advantages of being rapid and
+non-iterative.
+3.1 . Description of the method
+For a linear least-squares solver to be applicable, the objective
+function f must be quadratic in the parameters to be optimized,
+in this casex. For the RCLS procedure described in this section
+the objective functionfRCLS is defined as a sum of two sub-
+objectives:
+fRCLS = fB + fR. (9)
+The first sub-objective,fB, is a metric of magnetic field error
+commonly used in stellarator magnet optimization. It is related
+to the square of the discrepancy from the desired values of the
+normal component of the magnetic field on the target plasma
+boundary produced by the wireframe:
+fB = 1
+2 (Ax − b)2 . (10)
+Hereafter, the square of a vector quantity constitutes the dot
+product of the vector with itself.A contains the geometric mat-
+rix elements fromG as defined in equation (3) weighted by the
+square root of the areaai of the portion of the target plasma
+boundary attributed to the respective test point:
+Aij = Gij
+√ai (11)
+b contains the desired values of the normal magnetic field
+at test points on the target plasma boundary, also weighted
+by √ai:
+bi = (Btarg,i · ˆni )√ai. (12)
+The target values of the magnetic field,Btarg,i at each test point
+on the plasma boundary are the values that the field from the
+wireframe must attain in order to confine the target plamsa,
+accounting for fixed contributions from other field sources
+including external coils and currents within the plasma.
+As formulated in equation (10), fB is approximately equal
+to half of the square integral of the field discrepancy over the
+plasma boundary:
+fB ≈ 1
+2
+¨
+[(Bwf − Btarg) · ˆn]2 dA. (13)
+Here, Bwf refers specifically to the magnetic field produced by
+the wireframe current distribution.
+The second sub-objective, fR, constitutes Tikhonov
+regularization [32, 33]. It penalizes segment currents that
+are especially large:
+fR = 1
+2 (Wx)2 . (14)
+W is a (typically diagonal) matrix of weighting terms. IfW is
+indeed diagonal and all diagonal elements are the same, then
+fR reduces to the form(1/2)λx2, whereλ is the square of each
+diagonal element. Assigning different values to the diagonal
+elements ofW, on the other hand, allows the currents in differ-
+ent segments to be weighted differently for the regularization.
+The RCLS algorithm finds the optimal set of segment cur-
+rents x∗ that minimizes the total objectivefRCLS while uphold-
+ing a set of linear equality constraints:
+x∗ =min
+x
+(fB + fR) (15)
+s.t. Cx = d (16)
+4
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+C and d are the left-hand side coefficients and right-hand side
+terms of the constraint equations as defined in equation (8).
+The solution x∗ to this problem may be found by solving
+two systems of linear equations, one withp equations and the
+other withn − p equations, wherep is the number of constraint
+equations andn is the number of wireframe segments. The pro-
+cedure is described in more detail in appendixB.
+Mathematically, this approach has much in common with
+the Regcoil code for designing stellarator coils [2]. Both
+approaches use linear least squares to minimize the square
+integral of the normal field on a target plasma boundary sub-
+ject to Tikhonov regularization. The difference lies in how the
+(coil) current distribution is formulated and parametrized. In
+the case ofRegcoil, the parameters are Fourier coefficients of
+the current potential of a two-dimensional surface current dis-
+tribution that encloses the plasma. With RCLS, by contrast, the
+parameters are the wireframe segment currents and are there-
+fore spatially localized. In addition, inRegcoil, current con-
+tinuity is inherently upheld by the current potential formula-
+tion; whereas with RCLS, a set of linear equality constraints
+is required to uphold current continuity.
+3.2. Basic example
+An example of a wireframe with currents optimized by the
+RCLS procedure is shown in figure3. This wireframe encloses
+the stellator equilibrium with near-precise quasiaxisymmetry
+described in [34] (hereafter ‘Precise QA’). The equilibrium has
+two field periods, a major radius of 1 m, and a magnetic field
+on axis of 1 T. It is a vacuum equilibrium; hence, the pressure is
+everywhere zero and there are no internal plasma currents. The
+wireframe was designed such that the nodes are each approx-
+imately 0.3 m from the target plasma boundary. Segments and
+nodes lying in poloidal cross-sections coincide with planes of
+constant toroidal angle. The segments form a toroidal mesh
+with Ntor = 8 nodes per half-period in the toroidal dimension
+(i.e. 32 nodes per toroidal revolution) andNpol = 12 nodes in
+one poloidal revolution. The resolution of this wireframe will
+be denoted hereafter as8 × 12 or, more generally,Ntor × Npol.
+In general, a half-period containsNtorNpol toroidal segments
+and the same number of poloidal segments, leading to a total
+of 2NtorNpol segments per half-period.
+For this wireframe, the RCLS procedure optimized the cur-
+rents in the 192 unique segments constituting a single half-
+period, which by symmetry specify the currents in all 768 seg-
+ments within the torus. The segments’ currents were all subject
+to continuity constraints (equation (4)), and a poloidal current
+constraint (equation (5)) mandated that the net poloidal cur-
+rent flowing in the wireframe equal 5 MA to produce an aver-
+age toroidal field of 1 T at major radiusr = 1 m. Altogether,
+there were 95 constraint equations, leaving 97 degrees of free-
+dom for the optimization. The solution was obtained using a
+regularization matrix ofW = (10−10 Tm A−1)I, where I is
+the n × n identity matrix withn = 192 equal to the number of
+segments. The solution took approximately 100 ms to compute
+on a laptop computer. All of the equality constraints were very
+well satisfied, with the largest component of the residual vector
+Cx − d having an absolute value of less than1 × 10−9 A (for
+Figure 3. (a) Rendering of a wireframe with currents optimized to
+produce a field to confine the Precise QA plasma equilibrium
+described in [34], along with the the target plasma boundary.
+Segments are color-coded according to the current they carry. (b)
+Schematic of the segments of one half-period of the wireframe.
+Arrows on the top of the plot near ‘Itor’ indicate the current flow
+direction associated with the colors of the horizontal (toroidal)
+segments; arrows on the right of the plot near ‘Ipol’ indicate the flow
+direction associated with the colors of the vertical (poloidal)
+segments.
+reference, the smallest current carried in any of the wireframe
+segments had an absolute value of1.7 × 103 A).
+Figure 3(a) shows a three-dimensional rendering of the
+wireframe and the target plasma boundary. Figure3(b) con-
+tains a two-dimensional schematic of the segments and cur-
+rents. The latter figure depicts the segments from one half-
+period of the wireframe (one-fourth of the torus in this case)
+flattened out with the toroidal dimension on the horizontal axis
+and the poloidal dimension on the vertical axis. The coordin-
+ates correspond to the toroidalϕwf and poloidal θwf angles
+at which the nodes appear on the toroidal reference surface
+used to construct the wireframe (the subscript ‘wf’ is meant to
+distinguish the wireframe reference surface angles from the
+angles parametrizing the target plasma boundary). Toroidal
+segments, which carry current in (approximately) the toroidal
+5
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+dimension, are oriented horizontally; whereas poloidal seg-
+ments, which carry current in (approximately) the poloidal
+dimension, are oriented vertically. The plot is periodic in the
+poloidal (vertical) dimension; hence, the tops of the poloidal
+segments appearing atθwf = 360◦ are connected to the seg-
+ments appearing atθwf = 0◦ on the outboard side. The poloidal
+segments on the left-hand and right-hand sides of the plot (tor-
+oidal anglesϕwf = 0◦ and 90◦) lie in symmetry planes at the
+interfaces between adjacent half-periods; as such, half of the
+segments in those planes are not shown because they essen-
+tially ‘belong’ to the adjacent half-periods in accordance with
+stellarator symmetry [35].
+As indicated by the arrows in the margins of figure3(b), the
+segments are color-coded according to the magnitude and dir-
+ection of the current they carry. For the toroidal segments, red
+indicates current flow in the positive toroidal direction (right),
+whereas blue indicates current flow in the negative toroidal dir-
+ection (left). Similarly, for the poloidal segments, red indicates
+current flow in the positive poloidal direction (up), whereas
+blue indicates current flow in the negative poloidal direction
+(down).
+As can be seen in figure3, every segment carries a unique
+current. This is a consequence of the linear least-squares
+optimization approach, in which the free parameters—i.e.
+the segment currents—are optimized in a continuous space.
+Nevertheless, current continuity is enforced at each node
+through the incorporation of the linear equality constraints in
+equation (4); hence, there is no charge accumulation at the
+nodes. Also, while no upper bounds are explicitly enforced
+on the values of the segment currents, the incorporation of
+Tikhonov regularization effectively restricts how large these
+currents can be.
+Magnetic field accuracy can be quantified by(B · ˆn)/|B|,
+the relative normal component of the total magnetic fieldB
+(including contributions from the wireframe as well as plasma
+currents or external magnets if present) on the target plasma
+boundary. A perfectly accurate field is tangential to the target
+plasma boundary, and hence(B · ˆn)/|B| is ideally 0. The mag-
+netic field produced by this wireframe solution is highly accur-
+ate, as shown in figure4. Figure4(a) indicates that(B · ˆn)/|B|
+rarely exceeds 0.3%. The surface average of the absolute value
+of this normalized quantity over the target plasma boundary,
+⟨|B · ˆn|/|B|⟩, is 6.31 × 10−4. Furthermore, the flux surfaces
+produced by the solution, whose geometry is indicated by the
+Poincaré cross-sections in figure4(b), exhibit excellent agree-
+ment with the shape of the target plasma boundary.
+3.3. Restricting space for other components
+The wireframe formulation makes it straightforward to restrict
+the solution to have zero current in arbitrary regions, e.g. to
+leave space for ports and other components. As indicated in
+figure 2, segments that overlap restricted areas can simply be
+constrained to have zero current by applying segment con-
+straint equations (equation (7)).
+A wireframe solution for the Precise QA plasma with cer-
+tain areas blocked off for ports is shown in figure5. In this
+example, each half-period has four cylindrical ports placed
+Figure 4. (a) Normal component of the magnetic field on the
+plasma boundary produced by the wireframe shown in figure3,
+relative to the magnitude of the magnetic field. (b) Poincaré
+cross-section of the magnetic field lines produced by the wireframe
+solution (dots) along with a cross-section of the target plasma
+boundary (black curve).
+on the outboard side. To match the accuracy of the solution
+without ports as shown in figure3, it was necessary to increase
+the wireframe grid resolution to12 × 22, presumably to com-
+pensate for the spatial gaps in the current distribution intro-
+duced by the segment constraints. Accounting for the con-
+straints placed on continuity, poloidal current, and the seg-
+ments that collide with ports, the wireframe has 241 degrees
+of freedom to be optimized. For this solution, the regulariza-
+tion matrix wasW = (10−10 Tm A−1)I, whereI is then × n
+identity matrix withn = 528 equal to the number of segments.
+Figure 5 shows the current distribution in the wireframe
+determined for this solution. Segments carrying zero current
+as a result of being constrained are omitted. While the over-
+all field accuracy metric⟨|B · ˆn|/|B|⟩ is 6.37 × 10−4, nearly
+the same as that of the no-port solution, the solutions exhibit
+some differences. First, the maximum segment current in this
+solution is roughly twice that of the no-port solution, with the
+largest currents appearing in the vicinity of the holes in the
+distribution at the locations of the ports. Another contrast with
+the no-port solution is in the net toroidal current, which was
+not constrained for either solution. For this solution, the net
+toroidal current was 0.65 MA, whereas it was 0.90 MA in the
+no-port case.
+6
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 5. (a) Rendering of a wireframe with a current distribution
+optimized with the RCLS technique. Segments constrained to have
+zero current due to overlap with the cylindrical ports are not shown
+in the rendering. (b) Schematic of the segments of one half-period,
+analogous to that of figure3(b), not including segments constrained
+to carry no current.
+It is notable that wireframes with RCLS solutions are able
+to achieve high magnetic field accuracy with a relatively coarse
+grid with few degrees of freedom, particularly in the no-port
+case. However, it is not clear how practical these solutions
+would be to implement. While each individual straight seg-
+ment of the wireframe is conceptually simple, driving unique
+currents through the many segments, each of which has junc-
+tions with other segments carrying different currents, would be
+challenging. Nevertheless, RCLS can be useful as a means of
+rapidly constructing a highly accurate vacuum magnetic field
+for a given plasma equilibrium. In addition, RCLS may be used
+to optimize the currents in pre-defined paths within the wire-
+frame, separated from one another with segment constraints
+that prevent the existence of multi-current junctions.
+4. Greedy Stellarator Coil Optimization (GSCO)
+The RCLS method is just one of many optimization
+approaches that can be employed within the wireframe
+Figure 6. Schematic illustrations of how adding loops of current
+can effectively add or reshape coils in a wireframe grid. (a) Adding
+loops of current with the same polarity to a set of contiguous cells
+creates a saddle coil. (b) Adding loops of current next to a
+pre-existing straight section of a coil can add curvature to the coil.
+solution space. This section introduces a new, fully dis-
+crete optimization technique, hereafter referred to asGreedy
+Stellarator Coil Optimization(GSCO). GSCO is an iterative
+method that constructs paths of current within the wireframe
+that can form the basis for the design of coils.
+4.1 . Description of the method
+The GSCO procedure works by adding small loops of current
+to the wireframe, one by one. For the present work, these cur-
+rent loops encircle singlecells of the wireframe grid. Each cell
+consists of four segments that surround a quadrilateral gap; in
+other words, the segments forming a cell do not enclose any
+other segments.
+Figure 6 illustrates schematically how coils may be con-
+structed on a wireframe by adding loops of current. In
+figure 6(a), five loops with the same polarity are added to five
+contiguous cells of the wireframe. Note that the net current
+in segments between adjacent loops is zero, as the contribu-
+tions from the two loops are equal and opposite. Accounting
+for these cancellations, the net effect of the five loops is to
+create a saddle coil enclosing the cells where the loops were
+added.
+Figure 6(b) shows how a pre-existing section of a coil can
+be reshaped by adding current loops to cells adjacent to the
+coil. In this case, the pre-existing coil is represented by the
+straight, vertical current flow. If loops of current are added
+adjacent to this coil, and the magnitude and polarity of these
+loops is such that the loops cancel out the current in the ini-
+tially active coil segments, the net effect is to divert the initial
+flow along a new path, as seen in the right-hand plot.
+7
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+The process of adding loops of current to the wireframe
+thus constitutes a topologically flexible method of designing
+coils. New coils can be created by adding loops of current to an
+empty section of the wireframe, as in figure6(a). Existing coils
+can be reshaped by adding loops of current to adjacent cells,
+as in figure6(b). Furthermore, existing coils can be removed
+altogether. For example, the coil created by the five counter-
+clockwise current loops in figure 6(a) can be removed by
+adding five clockwise current loops to the same cells, effect-
+ively cancelling out the contributions of the original counter-
+clockwise loops.
+The GSCO algorithm optimizes the current distribution in
+a wireframe by performing a series of iterations. In each itera-
+tion, a single loop of current is added to the wireframe, with the
+cell (location) and polarity chosen to bring about the greatest
+possible reduction in an objective functionfGSCO. The classi-
+fication of the algorithm as ‘greedy’ arises from its general
+approach of constructing a solution to a highly complex prob-
+lem in multiple small steps, in each step making an optimal
+choice according to a relatively simple heuristic [36]1. Similar
+approaches have been used successfully in many applications
+including signal processing [37], DNA sequencing [38], and
+operations research [39].
+The GSCO procedure draws particular inspiration from the
+greedy algorithms developed in [24–27] for designing arrays
+of permanent magnets to shape the confining fields for stel-
+larator plasmas. The greedy permanent magnet optimizers
+(GPMO) worked by adding permanent magnets one by one
+to achieve the desired field shaping. A small loop of current
+in a wireframe functions similarly to a permanent magnet, in
+the sense that both constitute sources of approximately dipolar
+magnetic fields. A wireframe current loop can also be thought
+of as a discrete analogue to the recently introduced concept of
+a current potential patch [28]. Arrays of small dipole sources
+can in principle create highly accurate 3D shaping for stel-
+larator magnetic fields, provided the dipoles are placed in the
+correct locations with the correct orientations and strengths [3,
+19]; this insight forms the basis of the heuristic that guides the
+iterations in both GPMO and GSCO.
+During the greedy iterations, the optimizer faces some lim-
+itations on where it may place loops of current. These limita-
+tions are defined by a set of eligibility rules that dictate whether
+any given cell in the wireframe may receive a loop of current.
+Some possible eligibility rules are summarized in table1. One
+essential eligibility rule is that the wireframe current distri-
+bution must adhere to the segment constraints (equation (7)).
+Clearly, if adding a current loop to a given cell would result in
+a nonzero current appearing in a constrained segment, that cell
+should not be eligible. Other eligibility rules are optional and
+can be used to make the solution simpler. For example, the user
+can require that solutions exhibit no crossing current paths;
+i.e. at each node in the wireframe, there can be at most two
+current-carrying segments. With this requirement in place, any
+1 GSCO may also be classified as a repeatedlocal search, as the current distri-
+bution x is a feasible solution (i.e. all constraints are obeyed) at every iteration
+and thus each iteration entails making a small change to an already-feasible
+solution.
+Table 1 .Eligibility rules that may be applied to determine whether
+a loop of current may be added to a given cell during a GSCO
+iteration.
+Rule Description
+wireframe constraints Solution must satisfy all constraint
+equations Cx = d
+no crossings At each node, at most two segments
+may carry current
+no new coils Loops may not be added to a cell
+around which all segments presently
+carry no current
+max current (Imax) The absolute value of the current in
+any segment may not exceed a given
+Imax
+max loops per cell (Nmax) The net number of positive or negative
+loops of current added to a given cell
+may not exceed a defined maximum
+Nmax
+Figure 7 .Illustration showing how the addition of loops of current
+next to an existing straight section of wire may create a forked
+current path. In this case, the current loops add to a previously
+existing current flow rather than canceling it out as in figure6(b).
+cell for which an added loop of current would result crossed or
+forked current paths at a node (i.e. in which more than two seg-
+ments at a node carry current) is not eligible. Note that a cell
+may be eligible to receive a loop of current with one polarity
+but not the other, depending on the currents initially flowing
+in the cell’s segments.
+An example of a loop creating a forked current path is
+shown in figure7. In this example, three loops of current are
+added next to a straight flow of current. The loops of current
+are polarized such that they add to, rather than cancel, the
+current in the segments originally carrying the straight flow.
+Hence, the net result is a current distribution in which two seg-
+ments carrying one unit of current feed into a section carrying
+two units of current at the bottom of the figure, which in turn
+splits off into two segments carrying one unit of current at the
+top. Such distributions can be undesirable if one is seeking a
+solution with clearly defined, distinct coils whose windings do
+not merge together or split apart.
+The iterations in GSCO proceed until one of two stopping
+conditions is reached. The first possible stopping condition is
+that there are no more cells in the wireframe that are eligible
+to have a current loop added. The second possible stopping
+condition is that the optimization has reached a minimal value
+of the objective functionfGSCO. In practice, one can determine
+8
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+that this minimal value has been reached if the optimal current
+loop determined in a given iteration cancels out the current
+loop added in the previous iteration. This implies that any sub-
+sequent iterations would simply oscillate between two solu-
+tions by adding and removing the same current loop. Reaching
+this stopping condition does not necessarily imply that the
+absolute minimum of the objective function has been found;
+rather, the optimizer has become ‘trapped’ in a local minimum
+of the optimization space.
+The objective function fGSCO to be minimized by the
+GSCO procedure takes weighted contributions from two
+sub-objectives:
+fGSCO = fB + λSfS. (17)
+Here, fB is the square integral of the normal magnetic field
+at the plasma boundary as defined in equation (10). λS is
+a weighting factor. The second sub-objective fS is defined
+as follows:
+fS = 1
+2Nactive, (18)
+where Nactive is simply the number of segments in the
+wireframe that are active (i.e. they carry nonzero current).
+Solutions with lower values offS are more sparse than solu-
+tions with higher values; thus the objective function incentiv-
+izes sparsity in the solution. Sparse solutions are desir-
+able because they are typically simpler to implement and
+leave more design space available for other components.
+Optimizations with greater values ofλS will prioritize sparsity
+over field accuracy, whereas optimizations with lower values
+of λS will prioritize accuracy over sparsity.
+It should be noted that adding a loop of current to the wire-
+frame will not necessarily increase the value offS. The impact
+of a current loop on the sparsity of a solution depends on the
+current distribution in the wireframe before the loop is added.
+The possible effects of adding a current loop are illustrated
+in figure 8, which depicts the addition of a current loop in
+three different locations around an initial current distribution.
+In figure 8(a), in which the current loop is added next to a
+straight section, the result is to cancel the current in the seg-
+ment that was previously within the straight section and add
+current to the three segments that were initially inactive. This
+leads to a net increase of two active segments, or an increase
+of fS by 1. In figure8(b), a current loop is added next to a
+corner of the initial current path. In this case, two initially act-
+ive segments are canceled and two initially inactive segments
+are made active, resulting in no net change infS. Finally, in
+figure 8(c), a current loop is added to the inside of a c-shaped
+‘curve’ in the current path. This addition cancels the currents
+in three initially active segments and imparts current in one
+initially inactive segment, resulting in a net reduction of two
+active segments, or a decrease offS by 1.
+As an aside, note that in each case shown in figure8, the
+polarity of the added current loop was chosen such that there
+would be no forked current paths in the final current distribu-
+tions. Had the polarities of the loops been reversed in any of the
+three cases, the final current distributions would have exhibited
+Figure 8. Depictions of the different ways in which the addition of
+a current loop can affect the non-sparsity objectivefS of the current
+distribution in a wireframe: (a) a net increase of two active
+segments, corresponding to an increase offS by 1; (b) no change in
+the number of active segments orfS; (c) a net decrease of two active
+segments, corresponding to a decrease offS by 1.
+segments with twice the initial current and forks in the current
+paths. Such cases could be prevented, for example, by the ‘no
+crossing’ eligibility rule described above and in table1.
+The basic GSCO procedure is summarized formally
+in algorithm 1. The required inputs include A and b
+(equation (10)) for the computation of the objective function
+as well asC and d (equation (8)) to evaluate the constraints on
+the segments for determining eligibility. An additional input
+is a set of vectors{ui |1 ⩽ i ⩽ # cells in wireframe}, each of
+which encodes a unit current in four segments around a given
+wireframe cell. Thus, if a wireframe initially has a current
+distribution represented byx, the modified current distribu-
+tion obtained by adding a loop of currentIloop to theith wire-
+frame cell can be expressed asx ± Iloopui, where the sign spe-
+cifies the polarity of the loop. With this background data in
+place, the outcome of GSCO is shaped by the initial current
+distribution xinit, the loop currentIloop, the sparsity weight-
+ing parameterλS, and the set of eligibility rules chosen from
+table 1 (denoted asRules) determining where loops may be
+added.
+With the inputs and hyperparameters defined, the algorithm
+proceeds to add loops of current iteratively to the solution.
+Each iteration consists of two steps. The first is to build up
+9
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Algorithm 1.Greedy Stellarator Coil Optimization (GSCO).
+Input: A, b, C, d, {ui |1 ⩽ i ⩽ # cells in wireframe}
+Output: Optimized wireframe currents (x)
+function GSCO(xinit, Iloop, λS, Rules)
+x = xinit
+repeat
+L = {}
+for i = 1, . . ., # cells in wireframedo
+if x+ Iloopui obeys allRules then
+L = L ∪ {Iloopui}
+end
+if x− Iloopui obeys allRules then
+L = L ∪ {−Iloopui}
+end
+end
+y∗ = miny∈L [fB(x + y) +λSfS(x + y)]
+x = x + y∗
+until no eligible cells exist orfGSCO stops decreasing
+return x
+end
+a setL of possible current loops to add to the solutionx. This
+entails checking, for each wireframe cell, whether a loop of
+current ±Iloop in that cell is eligible to be added according
+the rules. If a loop with currentIloop is eligible to be added
+to the ith cell, for example, then the vectorIloopui is added
+to L. After L is populated, the second step is to choose the
+optimal membery∗ ∈ L that achieves the lowest value of the
+optimization objectivefGSCO when added to the present solu-
+tion. The solutionx is then updated tox + y∗. The iterations
+continue until a stopping condition is met; namely, that no eli-
+gible cells exist orfGSCO stops decreasing as described above.
+Note that the setL of eligible current loops must be reconstruc-
+ted after every iteration, as some rules depend on the current
+distrubtion encoded byx and thus a cell that was eligible in one
+iteration will not necessarily remain eligible in a subsequent
+iteration.
+Throughout this section, ‘coils’ will be used as short-
+hand to describe isolated, filamentary paths of current flow-
+ing through the wireframe. These paths, which contain many
+sharp, angular turns, would not necessarily constitute feasible
+coil geometry—especially if it is desired to make the coils with
+high-temperature superconducting tape, which cannot tolerate
+sharp bends [40, 41]. However, they could form a starting point
+for more realistic coil designs. For example, a wireframe cur-
+rent path with sharp angles could be converted to a smoother
+curve using splines. Furthermore, these smoothed coil shapes
+could be refined for improved field accuracy and other object-
+ives with an optimizer such asFocus [10], Desc [42], Gospel
+[12], orSimsopt [43].
+The GSCO procedure can design coils in many differ-
+ent styles and topologies depending on how it is initialized
+and constrained. In the following sections, some example
+solutions will be presented to demonstrate some of the
+possibilities.
+4.2. Modular coils
+The GSCO algorithm will first be applied to the design of
+modular coils for the Precise QA equilibrium. Modular coils,
+which encircle the plasma once poloidally while remaining
+toroidally localized, are employed in most modern stellarator
+designs.
+It is important to note that the GSCO algorithm as formu-
+lated in section4.1 cannot itself create new modular coils on
+an empty toroidal wireframe grid. Since the incremental cur-
+rent loops added during each iteration cannot, by construction,
+encircle the plasma, no sum of these loops can contribute a net
+poloidal current. However, if the wireframe is initialized with
+some poloidal current flows, GSCO can reshape those flows to
+create an accurate magnetic field.
+Fortunately, the initial poloidal flows need not be com-
+plicated. In particular, they may take the form of simple
+poloidally-flowing rings within the wireframe. The only
+requirement is that the sum of the currents in these initial
+flows must equal the net poloidal current corresponding to the
+desired average toroidal magnetic field on axis.
+One example initialization is shown in figure9(a). The
+wireframe used in this case has a grid resolution of96 × 100,
+which is much greater than the resolutions used for the RCLS
+solutions in section 3. The higher resolution used for the
+GSCO solutions in this section compensates for the much
+more stringent limitations that the GSCO solver effectively
+places on the currents that can be carried by each segment.
+The wireframe is initialized to have six planar poloidal loops
+of current per half-period, or twenty-four poloidal loops alto-
+gether. The initial loops are spaced evenly in the toroidal
+angle. The segments in the poloidal current loops each carry
+0.208 MA, adding to a total of 5 MA of poloidal current.
+A series of optimizations was performed, using GSCO from
+this initialization of the wireframe, with different values of the
+weighting parameter λS. In each optimization, the eligibility
+rule preventing crossing current paths was in effect. In addi-
+tion, the current used in each loop to be added to the wireframe
+matched the magnitude of the current in the initialized planar
+poloidal coils. This way, loops could be added next to those
+initialized coils to modify their shapes without creating forked
+current paths, similarly to the example in figure6(b). Current
+loops were also eligible to be added to inactive segments in
+the spaces between existing coils, thereby creating new saddle
+coils.
+The trends in the sub-objective functions over the course
+of the optimizations for three selected values ofλS are shown
+in figure10. In every case, the optimizations terminated upon
+reaching a minimal value of the total objective functionfGSCO.
+As expected, lower values ofλS tend to result in solutions with
+higher field accuracy (lowerfB) and lower sparsity (higherfS).
+Interestingly, for the intermediate value ofλS = 10−6 T2 m2,
+both sub-objectives decrease simultaneously during roughly
+half of the iterations.
+The plots in figures9(b)–(d) show the results of a series of
+optimizations using different values of the sparsity weighting
+factor λS. Each optimization began from the same planar loop
+10
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 9. Current distributions (left and center column) and relative normal magnetic fields on the target plasma boundary (right column)
+for (a) a wireframe initialized with planar coils, and GSCO solutions using (b) λS = 10−9 T2 m2, (c) λS = 10−6 T2 m2, and (d) λS = 10−5
+T2 m2. In subplots (b)–(d), inactive wireframe segments are hidden. The plots in the middle and right columns each represent one
+half-period of the wireframe and the plasma boundary, respectively.
+initialization shown in figure9(a). The solutions differ starkly,
+both in terms of the qualitative appearance of the current dis-
+tribution (left and center columns) and in terms of the field
+accuracy (right column).
+For the lowest value ofλS (10−9 T2 m2, figure9(b)), the cur-
+rent distribution has a highly intricate appearance. The inboard
+side of the wireframe is nearly filled with active segments,
+forming a dense network of current paths consisting of both
+modular coils that encircle the plasma and saddle coils that
+do not. The outboard side is less dense with current-carrying
+segments but still features areas packed densely with saddle
+coils. The solution includes a number of miniature saddle coils
+that enclose just one or two cells of the wireframe. On the
+other hand, the solution achieves the best field accuracy met-
+rics, with a surface-averaged relative normal field on the target
+plasma boundary of⟨|B · ˆn|/|B|⟩ = 1.02 × 10−3.
+For the intermediate value ofλS (10−6 T2 m2, figure9(c)),
+the current distribution is much more sparse. It consists almost
+11
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 10. Values of sub-objective functions over the course of the
+iterations for GSCO performed on a modular coil initialization with
+different values of the weighting factorλS. (a) fB; (b) fS.
+purely of six modular coils per half period, with the exception
+of one small saddle coil nearϕwf = 20◦ and θwf = 140◦. Thus,
+in this case, the predominant effect of GSCO was to reshape
+the planar coils from the initialization rather than to add lots
+of new saddle coils. Overall, the solution has 72% fewer act-
+ive segments than the solution withλS = 10−9 T2 m2. The
+increase in sparsity and simplicity came at the expense of some
+field accuracy, with⟨|B · ˆn|/|B|⟩ increasing to2.44 × 10−3.
+For the highest value ofλS (10−5 T2 m2, figure 9(d)), the
+current distribution is even more sparse, and this time is a true
+modular coil solution with no saddle coils present. However,
+⟨|B · ˆn|/|B|⟩ increased substantially relative to the previous
+case, to1.73 × 10−2.
+In the solutions usingλS = 10−6 and 10−5 T2 m2, it is not-
+able that many of the initialized planar coils underwent little to
+no geometric modification on the outboard side (see, in partic-
+ular, figures9(c) and (d) whereθwf < 100◦ and θwf > 300◦).
+This is reminiscent of a pilot plant design described in [11,
+44]. For that design, theCoilopt++ code was employed to
+optimize the geometry of the modular coils, modeled as spline
+curves with constraints applied to be mostly vertical on the out-
+board side. In the GSCO solutions shown here, by contrast, no
+specific constraints were applied to keep the coils vertical on
+the outboard side; rather, this geometry is an indirect result of
+the application of the sparsity objective and the natural tend-
+ency for more shaping to be required on the inboard side of
+most stellarator designs.
+The optimizations shown in figures 9(c) and (d) were
+performed using 64 cores on a 2.9 GHz Intel Cascade
+Lake processor node on the Stellar cluster at Princeton
+University [45]. The wall clock times ranged from 44 s (λS =
+Figure 11 .Depiction of a wireframe with sector constraints that
+prevent current from crossing certain planes of constant toroidal
+angle. The constrained segments, through which no current may
+flow, are shown in orange.
+10−9 T2 m2) to 75 s (λS = 10−6 T2 m2), corresponding to
+0.8 to 1.3 CPU-hours. In each case, the wireframe contained a
+total of 19 200 segments per half-period, and 1024 field eval-
+uation points were used in the target plasma boundary to eval-
+uate fB.
+Before proceeding with further optimization results, it is
+worthwhile to note the extent to which the geometry of the
+wireframe, which remains fixed during each optimization, can
+affect the quality of the solutions. In some cases, even subtle
+changes in the wireframe geometry can have a noticeable
+impact on the achievable flux surface quality. This is discussed
+in more detail in appendixC.
+4.3. Sector-confined saddle coils
+While the modular coil optimizations in section4.2 serve as a
+useful proof-of-concept for the GSCO procedure, they do not
+utilize a key feature of GSCO; namely, the ability to impose
+arbitrary spatial restrictions on where coils may appear. Such
+restrictions enable the development of designs that explicitly
+reserve space for other device components or facilitate easier
+assembly and disassembly.
+One potential design concept that would be simple to
+assemble is one in which all coils are constrained to lie within
+toroidal sectors; i.e. in which there are designated planes of
+constant toroidal angle that no coils cross. To attain a design
+like this with GSCO, the first step is to impose constraints on a
+wireframe that prevent current from crossing certain toroidal
+planes. Such a set of constraints is displayed in figure11. In
+this schematic, the orange segments are subject to the segment
+constraints of equation (7). Hence, they may not carry any cur-
+rent and, for the purposes of GSCO, a cell that contains one
+or more of these constrained segments is not eligible for the
+addition of a loop of current. Note that the constraints here
+are only applied totoroidal segments; hence, it is allowable to
+12
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+add planar coils within these constrained regions in which the
+current flows in a strictlypoloidal direction.
+A sample solution that uses these constraints is shown in
+figure 12. The wireframe was initialized with a set of planar,
+poloidal current flows to produce the required toroidal field.
+These current flows were placed inside the regions where the
+poloidal segments were constrained and loops of current could
+not be added during GSCO; hence, their shapes would remain
+unchanged. There are only three planar coils per half-period
+in this example, in contrast to the six used in the modular coil
+solution in section4.2, although the net poloidal current is the
+same (5 MA), producing an average field on axis of 1 T.
+For the optimization in section 4.2, the loop current in
+GSCO needed to equal the current in the initialized planar
+coils so that their shapes could be modified by current loops
+without creating forked current paths. In this case, by con-
+trast, the optimization will not place current loops adjacent
+to the planar coils. Thus, the choice of loop current is arbit-
+rary. To determine which current level was best suited for this
+application, multiple optimizations were performed with dif-
+ferent loop current levels. In the optimizations performed to
+date, the best results have been achieved for this configuration
+with a loop current of 0.15 MA, or 3% of the total poloidal
+current.
+The solution shown in figure12 was run with a loop current
+of 0.15 MA andλS = 10−7.5 T2 m2. Renderings of the active
+segments of the final current distribution are rendered in 3D
+in figure12(a) and in 2D (for one half-period) in figure12(b).
+For visual clarity, the wireframe segments in the 3D rendering
+are superimposed on an opaque toroidal surface. The 3D ren-
+dering is viewed from above, such that the initialized planar
+coils appear as straight lines radiating from the center. In the
+2D rendering, the planar coils appear as straight, vertical lines.
+The field created by this current distribution is highly accurate,
+with (B · ˆn)/|B| rarely exceeding 1% (figure12(c)) and with
+flux surfaces that exhibit excellent agreement with the target
+plasma boundary (figure12(d)).
+As a result of the constraints placed on the optimiza-
+tion, the saddle coils are conveniently confined to sectors
+between the planar coils. With this layout, the device would
+likely be easier and faster to assemble and disassemble for
+maintenance. From the standpoint of a power plant, any
+reduction of maintenance time would make the plant more
+economical.
+The current distribution in figures12(a) and (b) is substan-
+tially less sparse than the modular coil solutions in figures9(c)
+and (d). However, note that the current paths in this solution
+tend to appear in concentric loops with like polarities, partic-
+ularly on the inboard side (figure12(b), 100◦ < θwf < 260◦).
+Thus, rather than interpreting each of these concentric loops
+as an individual coil, it may be more useful to view the sets of
+concentric loops as single saddle coils with finite dimensions,
+with the individual filaments forming the basis for the design
+of a winding pack.
+Figure 12. Current distribution and magnetic field properties of a
+wireframe containing a set of planar TF coils and saddle coils
+produced by GSCO constrained to lie within toroidal sectors. (a) 3D
+rendering of the active segments superimposed, for visual clarity, on
+a torus that fills the volume of the wireframe; (b) 2D rendering of
+the currents in one half-period of the wireframe; (c) relative normal
+component of the magnetic field on one half-period of the target
+plasma boundary; (d) Poincaré cross-section of field lines produced
+by the wireframe distribution, with the target plasma boundary
+shown as the black curve.
+13
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+4.4. Multiple currents
+The solutions presented in the previous sections each util-
+ized a single run of GSCO with fixed values of hyperpara-
+meters such as the loop currentIloop and weighting factorλS.
+One consequence of this was that all coils constucted by the
+GSCO algorithm carried the same current. However, it could
+be advantageous seek solutions in which different coils carry
+different currents. Such solutions can be attained by perform-
+ing a sequence of GSCO procedures with varying parameters
+at each step. One example is shown in figure13, and the asso-
+ciated procedure is summarized in algorithm2.
+The procedure applied the standard GSCO function
+(algorithm 1) multiple times, each time using a different loop
+current Iloop. In this way, the solution obtained a few new coils
+at each step with a distinct current level. The sequence pro-
+ceeded in a ‘drop-down’ manner, with the first optimization
+using the highest current (Iloop = 1 MA), and with each sub-
+sequent optimization using one-half of the loop current of the
+previous optimization.
+The procedure also took measures to avoid potentially
+inconvenient features such as concentric coils which had
+been prevalent in the solution in section4.3, or very small
+coils. To lessen the likelihood of concentric coils appearing,
+the each GSCO optimization was run with the ‘max loops
+per cell’ rule (table 1) with Nmax = 1. In addition, follow-
+ing each GSCO step, all segments enclosed within exist-
+ing coils were constrained to carry zero current. To avoid
+the presence of overly small saddle coils, any coil at the
+end of an optimization that enclosed fewer than 20 cells
+was eliminated before starting the subsequent optimization.
+Presumably, if a very small coil appears in a given region dur-
+ing one optimization in the sequence, a larger coil would be
+placed in the same location with half the current in the next
+optimization.
+After several sequential GSCO procedures with decreasing
+loop current levels, a final GSCO procedure was performed to
+fine-tune the shapes of the existing coils without adding any
+new coils. Practically, this was accomplished by removing the
+constraints on segments enclosed by coils and invoking the ‘no
+new coils’ rule (table1) with an enhanced version of the ori-
+ginal GSCO function that offers the option to match existing
+currents in the wireframe. This is summarized in algorithm3
+as the functionGSCO_match. The current-matching feature
+is implemented in each iteration through an additional step
+performed prior to checking the eligibility of a given cell.
+Specifically, if the cell contains segments that are already part
+of an existing coil with a currentImatch, the optimizer will con-
+sider a loop current for that cell with a current equal toImatch
+rather than the default currentIdefault supplied by the user as a
+hyperparameter. This is advantageous when the initial current
+distribution xinit contains coils with different currents. When
+the greedy optimizer has the flexibility to add loops of current
+that match the current of the coils that the loops are next to, the
+Figure 13. Current distribution and magnetic field properties of a
+wireframe with saddle coils designed in a sequence of GSCO
+procedures. (a) 3D rendering of the active segments along with
+accompanying circular TF coils and the target plasma boundary; (b)
+2D rendering of the currents in one half-period of the wireframe; (c)
+relative normal component of the magnetic field on one half-period
+of the target plasma boundary; (d) Poincaré cross-section of field
+lines produced by the wireframe distribution, with the target plasma
+boundary shown as the black curve.
+14
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Algorithm 2.Multistage GSCO.
+Input: A, b, C, d, {ui |1 ⩽ i ⩽ # cells in wireframe}
+Output: Optimized wireframe currents (x)
+function GSCO_multistage(xinit, Istart, λS, Ncells,min)
+Rules1 = {wireframe constraints, no crossing, max
+loops per cell (1)}
+x = xinit
+Iloop = Istart
+repeat
+x = GSCO(x, Iloop, λS, Rules1)
+Remove coils fromx enclosing fewer cells thanNcells,min
+Update C and d to constrain segments within new coils to
+carry no current
+Iloop = Iloop/2
+until xdoes not change from previous iteration
+Update C and d to remove constraints on segments within coils
+Rules2 = Rules1 ∪{no new coils}
+x = GSCO_match(x, 0, λS, Rules2)
+return x
+end
+Algorithm 3.GSCO with current matching.
+Input: A, b, C, d, {ui |1 ⩽ i ⩽ # cells in wireframe}
+Output: Optimized wireframe currents (x)
+function GSCO_match(xinit, Idefault, λS, Rules)
+x = xinit
+repeat
+L = {}
+for i = 1, . . ., #cells in wireframedo
+{Ij|1 ⩽ j ⩽ 4} = the currents in the segments around celli
+if Ij = 0 for allj then
+Iloop = Idefault
+end
+else ifthe nonzero Ij have a single absolute
+value (≡ Imatch) then
+Iloop = Imatch
+end
+else
+Not eligible; continue to next cell
+end
+if x+ Iloopui obeys allRules then
+L = L ∪ {Iloopui}
+end
+if x− Iloopui obeys allRules then
+L = L ∪ {−Iloopui}
+end
+end
+y∗ = miny∈L [fB(x + y) +λSfS(x + y)]
+x = x + y∗
+until no eligible cells exist orfGSCO stops decreasing
+return x
+end
+optimzer is able to adjust the shapes of all the coils in a single
+function call.
+Note that if a single cell contains segments utilized by
+different coils with different current levels, it is also considered
+ineligible for the addition of a current loop, as the value to
+use forImatch is ambiguous. Furthermore, adding a loop with
+any (nozero) value ofImatch in this case would create a forked
+current path.
+In general, if a given cell has no current-carrying segments
+(i.e. the cell is not adjacent to an existing coil),GSCO_match
+can consider adding a loop of current with a user-specified
+default current level. However, for the application in the
+multistage GSCO procedure (algorithm2), this feature was
+circumvented by applying the ‘no new coils’ rule and (redund-
+antly) setting the Idefault hyperparameter to 0. This is done
+because the goal at this final step of algorithm2 is strictly to
+refine the shapes of the existing coils rather than to add any
+new ones.
+Applying the multistage procedure (algorithm2) to a wire-
+frame around the Precise QA equilibrium yielded the solu-
+tion shown in figures13(a) and (b). Similarly to solution in
+section 4.3, the saddle coils added by the GSCO procedures
+are confined to toroidal sectors. One new aspect of this solu-
+tion is that the toroidal field is produced not by the wireframe
+itself but by a set of external, circular TF (toroidal field) coils.
+Therefore, the wireframe was not initialized with any poloidal
+current flows. Hence, this solution demonstrates how a wire-
+frame can be optimized to improve the field created by a pre-
+existing set of coils.
+The multistage procedure usedλS = 1 × 10−7 T2 m2. The
+starting loop currentIstart was 1 MA. Ultimately, the success-
+ive applications of GSCO added coils with currents of 1 MA,
+500 kA, 250 kA, 125 kA, and 62.5 kA; subsequent GSCO runs
+with lower currents failed to add any coils above the minimum
+size Ncells,min. The computation time to perform algorithm2 for
+this solution was substantially lower than the time required to
+perform algorithm1 for the solutions in sections4.2 and 4.3.
+This is due to the more stringent constraints used in each
+optimization, which greatly reduced the number of eligible
+cells for the optimizer to check during each iteration. Using
+4 cores on a 2.9 GHz Intel Cascade Lake processor node on
+the Stellar cluster, the longest call to GSCO in the sequence
+took 34 s, or 136 CPU-seconds. Running the entire proced-
+ure on a laptop, including additional steps for setting up the
+wireframe and post-processing, took less than 5 min.
+Remarkably, the solution leaves a substantial amount of
+empty space on the outboard side, particularly forθwf < 100◦
+and 15◦ < ϕwf < 45◦ in figure13(b). This is the case despite
+no specific spatial restrictions having been placed on this area.
+Nevertheless, the field accuracy is quite good, with(B · ˆn)/|B|
+is mostly below 1% (figure13(c)). The field exhibits decent
+flux surface agreement (figure13(d)), although the flux sur-
+faces near the plasma boundary appear to be deformed slightly
+by a resonant perturbation just outside. Field accuracy could
+be improved by running the optimization with a lower value of
+λS, although this would come at the expense of adding more
+coils with more complicated geometry.
+5. Summary and conclusions
+In this paper, the wireframe framework for stellarator coil
+design and optimization was introduced. Consisting of a set
+of interconnected current-carrying segments, the wireframe
+15
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+offers a solution space with a spatially local parametrizaton
+that enables the imposition of arbitrary constraints on where
+current flows may be located. Two methods of optimizing
+the wireframe segment currents were introduced: RCLS and
+GSCO.
+RCLS is a rapid, linear optimizer that can produce highly
+accurate solutions on coarse grids, although the prevalence
+of junctions of segments that each have unique current levels
+could make these distributions difficult to realize in practice.
+GSCO is a fully discrete algorithm that can construct flows
+of current in the wireframe that avoid the complicated current
+junctions seen in the RCLS solutions and control the number
+of unique current levels required to implement the solution.
+GSCO is also topologically flexible and can both add new
+coils and reshape pre-existing coils in a single optimization.
+As demonstrated in section4, it could produce both modu-
+lar coil solutions and saddle coil solutions for the same target
+plasma equilibrium, with the nature of the solution dependent
+on the initialization and constraints imposed.
+The example solutions for both optimization methods illus-
+trated the ease with which arbitrary spatial constraints may
+be placed on current distributions. Since the current distribu-
+tion is parametrized according to the current carried by each
+individual segment, such spatial constraints can be implemen-
+ted simply by zeroing out the parameters corresponding to
+any subset of segments where current flow is not desired.
+For example, current distributions can be constrained to leave
+space for ports (figure5), or to keep current flows confined
+to predefined toroidal sectors for ease of assembly (figures12
+and 13).
+While the current flow patterns in the GSCO solutions can-
+not themselves constitute designs for coils due to their fila-
+mentary nature and the sharp corners at the wireframe nodes,
+they can serve as a starting point for coil geometry that can
+be subsequently refined with space curve optimization tech-
+niques. The value of the GSCO procedure in this case lies in
+its ability to:
+1. identify the most important locations for saddle coils and/or
+shape modifications for pre-existing coils,
+2. determine coil shapes within the wireframe solution space
+that produce a highly accurate field,
+3. obey spatial constraints that would be more difficult to
+enforce with other optimization methods, and
+4. exhibit flexibility in determining the number of coils.
+There are many possibilities for expanding the wireframe
+framework and associated optimization methods to increase
+flexibility and access larger solution spaces. For example,
+with the GSCO procedure, many solutions can only be found
+through optimization in multiple stages that use different
+hyperparameters, as was the case for the multi-current solu-
+tion in section4.4. By further developing customized recipes
+for GSCO sequences, it should be possible to find solutions
+that are better suited for a variety of applications and device
+requirements.
+In addition, there are ways of generalizing the wireframe
+itself that may lead to better solutions. For one, it may be
+worth experimenting with different segment meshing struc-
+tures (e.g. triangles). Furthermore, all of the wireframes util-
+ized in this paper exhibited two-dimensional, toroidal topo-
+logy, and were thus analogous to the toroidal winding sur-
+faces used in many existing coil design techniques. The use of
+this type of wireframe effectively constrains the optimized cur-
+rent distribution to exist on a pre-specified surface, which puts
+strict limits the solution space. However, in principle, wire-
+frames can be constructed with three-dimensional topology,
+with segments filling a volume around the plasma and thus
+enabling a much more extensive solution space. Such wire-
+frames will be developed and investigated as next steps.
+Data and code availability
+The methods developed for this paper are implemented in the
+open-source Simsopt codebase [46]. The three-dimensional
+plots were rendered by the Mayavi scientific visualization
+package [47]. The data presented here, along with scripts for
+reproducing the key results, are available athttps://doi.org/10.
+34770/6pbm-9981.
+Acknowledgments
+The research described in this paper was conducted under
+the Laboratory Directed Research and Development (LDRD)
+Program at the Princeton Plasma Physics Laboratory, a
+national laboratory operated by Princeton University for the
+U.S. Department of Energy under Prime Contract No. DE-
+AC02-09CH11466. The United States Government retains
+a non-exclusive, paid-up, irrevocable, world-wide license to
+publish or reproduce the published form of this manuscript, or
+allow others to do so, for United States Government purposes.
+Appendix A. Derivation of the formula for the
+magnetic field from a straight wire segment
+The formula in equation (1) for the magnetic field generated by
+a straight segment of wire may be derived from the Biot-Savart
+law for the magnetic field from a general space curve. The seg-
+ment formula is sometimes utilized to calculate the field from
+filamentary coils in which space curves are approximated as
+polygons. This approach is taken, for example, by the FLARE
+code [48] and by the MAKEGRID code in the STELLOPT
+codebase [49]. Derivations using alternate approaches may be
+found in [30, 31].
+To compute the expression for the magnetic fieldB at an
+evaluation pointpo from a currentI flowing in a segment of
+wire from pointp1 to pointp2, one begins with the Biot-Savart
+integral:
+B = µ0
+4π
+ˆ p2
+p1
+I dl′ × r′
+|r′|3 . (A1)
+Here, dl′ is a differential element of the wire segment andr′
+is a vector from the differential element to the field evaluation
+point pf.
+16
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 14. Setup for the computation of the Biot-Savart integral
+over a straight segment of wire.
+To compute the integral, the wireframe and test point will
+be placed in the coordinate system(u,v,w) shown in figure14.
+The evaluation point lies on theu axis at the point(uf,0,0)
+and the segment is positioned on thev axis between the points
+(0,v1,0) and (0,v2,0). The differential interval dl′ along
+the segment is (0,dv′,0). The vector r′ is then (uf,0,0) −
+(0,v′,0) = (uf,−v′,0) and
+dl′ × r′ = (0,0,−ufdv′)
+= −ufdv′ ˆw. (A2)
+Here, ˆw is a unit vector perpendicular to the plane containing
+the segment and the evaluation point (defined more precisely
+below).
+The integral may then be written as
+B = −µ0I
+4π ˆw
+ˆ v2
+v1
+uf
+(
+u2
+f + v′2
+)3/2 dv′ (A3)
+and evaluates to
+B = −µ0I
+4π
+( 1
+uf
+)
+ v2√
+u2
+f + v2
+2
+− v1√
+u2
+f + v2
+1
+
+ ˆw (A4)
+The expression in equation ( A4) may be rewritten in
+coordinate-free form by noting the following. First, the unit
+vectors ˆu, ˆv, andˆw can be expressed in terms ofr1 and r2 as
+ˆw = r2 × r1
+|r2 × r1| (A5)
+ˆv = r1 − r2
+|r1 − r2| (A6)
+ˆu = ˆv × ˆw =
+(
+|r2|2 − r1 · r2
+)
+r1 +
+(
+|r1|2 − r1 · r2
+)
+r2
+|r1 − r2||r1 × r2| .
+(A7)
+Using equations (A5)–(A7), the coordinatesv1, v2, anduf
+may be written as
+v1 = −r1 · ˆv = r1 · r2 − |r1|2
+|r1 − r2| (A8)
+v2 = −r2 · ˆv = |r2|2 − r1 · r2
+|r1 − r2| (A9)
+uf = r1 · ˆu = |r1|2 |r2|2 − (r1 · r2)2
+|r1 − r2||r1 × r2| = |r1 × r2|
+|r1 − r2|. (A10)
+Finally, substituting equations ( A5) and ( A8)–(A10)
+into equation (A4), also noting that
+√
+u2
+f + v2
+1 = |r1| and
+√
+u2
+f + v2
+2 = |r2|, yields, after some algebra, the expression
+in equation (1):
+B = µ0I
+4π
+( |r1| + |r2|
+|r1||r2|(|r1||r2| + r1 · r2)
+)
+r1 × r2. (A11)
+The expression is mathematically valid for any point that
+does not lie on the segment betweenp1 and p2, in which
+case the term|r1||r2| + r1 · r2 in the denominator is zero. This
+situation should not arise in practical wireframe applications,
+however, as the magnetic field of interest is located on the
+plasma boundary, which is assumed not to intersect any wire-
+frame segment.
+In general, using a filamentary approximation for a wire
+with finite thickness introduces an error in the magnetic field
+calculation proportional to(t/d)2, wheret is the thickness of
+the wire andd is the distance from the wire to the field evalu-
+ation point [15]. In principle, this error could be reduced with
+a more sophisticated model for the wireframe in which each
+segment has a finite thickness and the junction geometry at
+the nodes is implemented carefully such that the continuity
+constraint equations (equation (4)) still prevent charge accu-
+mulation. However, related to the discussion section4.1, even
+with finite segment build, the wireframe current distribution
+is unlikely to resemble a final coil design. Rather, the wire-
+frame current distribution would need to be refined such that
+the current flows take smoother paths. It may more worthwhile
+to account for finite thickness in this subsequent refining stage
+rather than during the optimization of the wireframe currents.
+Appendix B. Derivation of the equations for RCLS
+The RCLS problem in equation (15) constitutes a linear least-
+squares minimization subject to linear equality constraints and
+a regularization term. The first step in solving the problem
+is to represent the solution space forx in a basis in which
+its components are either fully determined by the constraints
+(i.e. in the image of the constraint matrix) or completely
+unconstrained (i.e. in the null space of the constraint matrix).
+As described, for example, in [50] (section 3.4) or [51], this
+17
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+can be done by computing the ‘full’ QR factorization of the
+transpose of the constraint matrixCT:
+CT =
+[
+Q ˜Q
+][
+R
+0
+]
+. (B1)
+Here, C ∈ Rp×n is the constraint matrix as defined in
+equation (8), n is the number of elements inx (the number
+of wireframe segments), andp is the number of linearly inde-
+pendent constraint equations. Thep columns of submatrixQ ∈
+Rn×p and the n − p columns of ˜Q ∈ Rn×(n−p) are orthonor-
+mal unit vectors, andR ∈ R(n−p)×(n−p) is an upper triangular
+matrix.
+Now define vectorsu ∈ Rp and v ∈ Rn−p in the bases spe-
+cified by the columns ofQ and ˜Q:
+[
+QT
+˜Q
+T
+]
+x =
+[
+u
+v
+]
+. (B2)
+Using the orthogonality property of the matrix on the left-hand
+side of equation (B2), x may be written in terms ofu and v as
+x =
+[
+Q ˜Q
+][u
+v
+]
+= Qu + ˜Qv. (B3)
+Using equation (B1), (16) can be expressed as
+RTQTx = d, (B4)
+or, after incorporating equation (B3),
+RTu = d. (B5)
+Thus, the constraints fix the vectoru whereas v represents
+the part of the solution that is unrestricted by the constraints.
+Equation (B5) can be solved efficiently foru using forward
+substitution, asRT is lower triangular.
+With u now known, it remains to determinev, the uncon-
+strained part of the solution. Using equation (B3), the total
+objective functionf may be written as
+f = 1
+2
+(
+AQu + A ˜Qv − b
+)2
++ 1
+2
+(
+WQu + W ˜Qv
+)2
+. (B6)
+The least-squares solutionv∗ that minimizesf is that which
+causes the gradient off to vanish:
+∇vf = ˜Q
+T
+AT
+(
+AQu + A ˜Qv − b
+)
++ ˜Q
+T
+WT
+(
+WQu + W ˜Qv
+)
+= 0. (B7)
+Collecting like terms and rearranging leads to
+˜Q
+T (
+ATA ˜Q + WTW ˜Q
+)
+v = ˜Q
+T (
+ATb − ATAQ − WTWQ
+)
+u.
+(B8)
+Equation (B8) constitutes a system of linear equations that
+can then be solved directly forv. Along with the solution foru
+determined in equation (B5), the solutionx∗ to the constrained
+least squares problem can then be computed via equation (B3).
+For high-resolution wireframes, in which the matricesA
+and W are large, the problem may be difficult to solve dir-
+ectly due to memory constraints and poor matrix conditioning.
+In this case, iterative algorithms with preconditioners may be
+employed. Similar high-dimensional constrained linear least
+squares problems have been solved with such techniques, for
+example, in [26].
+Appendix C. Dependence of GSCO solutions on
+wireframe geometry
+In each optimization shown in this paper, the free parameters
+were the currents in each segment of the underlying wireframe.
+The positions, lengths, and connectivity of the wireframe seg-
+ments were held fixed during the optimizations. However,
+these geometric aspects naturally influence the ability of the
+optimizer to find an accurate solution. To get an indication of
+the sensitivity of the solutions to the geometry of the wire-
+frame, a GSCO procedure was run on two wireframes with
+slight geometric differences.
+The first test wireframe was used for the optimizations per-
+formed in section4. It was created by first generating a toroidal
+surface offset roughly 30 cm from the target plasma boundary.
+This surface was calculated by theBnorm code. Bnorm was
+originally developed to prepare winding surfaces and calculate
+the target normal field on the plasma boundary forNescoil
+computations [5], and is currently available in theStellopt
+code suite [49]. Its method for generating offset surfaces is
+described in appendix B of [2].
+The offset surface geometry is parametrized with a toroidal
+angle ζ and a poloidal angleθ. The toroidal angleζ coincides
+with the standard azimuthal angleϕ in cylindrical coordinates.
+The cylindrical radial (r) and vertical (z) coordinates of a point
+on the surface may be computed for a givenθ and ζ.
+With this surface generated, the nodes of the wireframe
+were positioned on the surface on a two-dimensional grid of
+evenly-spaced intervals ofζ and θ. The resolution of the grid
+was 96 × 100, meaning 96 nodes per half-period in the toroidal
+dimension and 100 nodes in the poloidal dimension. Because
+of the equivalence ofζ with the cylindrical azimuthal angle
+ϕ mentioned above, nodes with a given value ofζ all lie in
+a plane with the azimuthal angleϕ = ζ. However, in the pol-
+oidal dimension, the physical spacing between the nodes is, in
+general, not regular.
+Following the creation of the first wireframe, a second wire-
+frame was generated with slightly different geometry. The
+nodes were placed on the same toroidal surface at the same
+azimuthal angles ϕ = ζ and had the same grid resolution of
+96 × 100; however, the poloidal intervals between each set of
+nodes were adjusted such that, for any givenζ, the Euclidean
+distances between nodes with adjacent θ values were uni-
+form. As a result, each segment in the second wireframe had
+a slightly different position and orientation than the corres-
+ponding segment in the first wireframe with the same toroidal
+and poloidal index. Similarly, a given current in a particular
+segment of the second wireframe would have a slightly dif-
+ferent contribution to the magnetic field than the same current
+18
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Figure 15. Comparison of GSCO solutions performed with the same hyperparameters on wireframes with the same grid resolution but
+slightly different segment geometry. (a) Rendering of the active segments from the solution with the original wireframe (magenta) and the
+wireframe with adjusted poloidal segment lengths (cyan), along with the target plasma boundary; (b) and (c) Poincaré cross-sections of field
+lines traced for each solution alongside the cross-section of the target plasma boundary.
+in the corresponding segment of the first wireframe; in other
+words, the elements of the matrixA (equation (11)) would be
+different.
+Both of these wireframes were initialized with six planar
+poloidal current flows per half-period at identical toroidal
+angles. A GSCO procedure was then run on each of the initial-
+ized wireframes. Both optimizations used the same hyperpara-
+meters, includingλS = 10−6 T2 m2 and a loop current equal to
+the current in the initial poloidal flows.
+A comparison of the solutions and their field accuracies is
+shown in figure15. In figure15(a), the active segments from
+both solutions are overlain. The solution on the wireframe
+with the original geometry is shown in magenta, whereas the
+solution on the wireframe with equalized poloidal segment
+lengths is shown in cyan. Both solutions consist mostly of
+modular coils, similar to the solutions in section4.2 (in fact,
+the original solution is the solution from section 4.2 with
+λS = 10−6 T2 m2). Overall, the modular coils follow qualitat-
+ively similar paths, especially on the outboard side. However,
+some differences in geometry can be seen on the inboard side.
+These differences are partly due to the different orientations
+of the segments in each wireframe; in some areas, it is clear
+that the segments from the modified wireframe are tilted at
+a substantial angle relative to the segments in the original
+wireframe.
+Overall, both solutions had very similar field accuracy
+metrics. The mean relative normal field ⟨|B · ˆn|/|B|⟩ was
+2.44 × 10−3 for the solution on the original wireframe, while
+the solution on the new wireframe had a slightly lower value
+of ⟨|B · ˆn|/|B|⟩ = 2.18 × 10−3. However, the flux surfaces cre-
+ated by each solution have more notable differences, as shown
+in the Poincaré cross-sections in figure15(b) for the original
+wireframe geometry and figure15(c) for the modified wire-
+frame geometry. Even though the solution on the modified
+wireframe had a slightly better summary field accuracy metric
+⟨|B · ˆn|/|B|⟩, it appears to be impacted by a resonant field error
+that deforms the flux surface geometry near the target plasma
+boundary.
+It is well understood that even a small error field can sub-
+stantially deform or otherwise impact flux surface geometry in
+the vicinity of a surface with a rotational transform value that
+is resonant with the error field [52]. Thus, it is not unexpected
+that small changes in the wireframe geometry might result in
+a field error that is small but large enough to impact the flux
+surfaces.
+It is not ideal that the achievable flux surface quality of
+GSCO solutions can be so sensitive to small changes in the
+geometry of the underlying wireframe. However, it is hypo-
+thesized that there is room for improvement in this regard.
+For example, while the objective functionfGSCO employed in
+these optimizations includes a general metric of field accur-
+acy, it does not include specific, elevated penalties for res-
+onant error fields. If such a penalty were added, it might be
+possible to achieve a better solution with the second wire-
+frame. Alternatively, if the solution on the second wireframe
+is refined with a space curve optimizer, this subsequent optim-
+ization could use a resonant error objective in order to heal
+the resonant error field. In the meantime, when developing
+wireframe solutions for a given plasma equilibrium, it is gen-
+erally good practice to repeat optimizations with slight vari-
+ations in wireframe geometry to see if better solutions are
+achievable.
+19
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+ORCID iD
+K.C. Hammond https://orcid.org/0000-0002-1104-4434
+References
+[1] Imbert-Gérard L.-M., Paul E.J. and Wright A.M. 2025An
+Introduction to Stellarators: From Magnetic Fields to
+Symmetries and Optimization(Society for Indistrial and
+Applied Mathematics) (https://doi.org/10.1137/1.
+9781611978223)
+[2] Landreman M. 2017 An improved current potential method for
+fast computation of stellarator coil shapesNucl. Fusion
+57 046003
+[3] Helander P., Drevlak M., Zarnstorff M. and Cowley S.C. 2020
+Stellarators with permanent magnetsPhys. Rev. Lett.
+124 095001
+[4] Bromberg L., Zarnstorff M., Meneghini O., Brown T.,
+Heitzenroeder P., Neilson G.H., Minervini J.V . and
+Boozer A. 2011 Stellarator configuration improvement
+using high temperature superconducting monolithsFusion
+Sci. Technol.60 643
+[5] Merkel P. 1987 Solution of stellarator boundary value
+problems with external currentsNucl. Fusion27 867
+[6] Drevlak M. 1998 Automated optimization of stellarator coils
+Fusion Technol.33 106
+[7] Miner W.H., Valanju P.M., Hirshman S.P., Brooks A. and
+Pomphrey N. 2000 Use of a genetic algorithm for compact
+stellarator designNucl. Fusion41 1185
+[8] Paul E.J., Landreman M., Bader A. and Dorland W. 2018 An
+adjoint method for gradient-based optimization of
+stellarator coil shapesNucl. Fusion58 076015
+[9] Strickler D.J., Berry L.A. and Hirshman S.P. 2022 Designing
+coils for compact stellaratorsFusion Sci. Technol.41 107
+[10] Zhu C., Hudson S.R., Song Y . and Wan Y . 2018 New method
+to design stellarator coils without the winding surfaceNucl.
+Fusion 58 016008
+[11] Brown T., Breslau J., Gates D., Pomphrey N. and
+Zolfaghari A. 2015 Engineering optimization of stellarator
+coils lead to improvements in device maintenance26th
+IEEE Symp. on Fusion Engineering (SOFE)(https://doi.
+org/10.1109/SOFE.2015.7482426)
+[12] Yamaguchi H., Satake S., Nakata M., Shimizu A. and
+Suzuki Y . (The W7-X Team) 2021 Optimization of modular
+and helical coils applying genetic algorithm and
+fully-three-dimensional B-spline curvesNucl. Fusion
+61 106004
+[13] Lonigro N. and Zhu C. 2022 Stellarator coil design using
+cubic splines for improved access to the outboard sideNucl.
+Fusion 62 066009
+[14] Singh L., Kruger T.G., Bader A., Zhu C., Hudson S.R. and
+Anderson D.T. 2020 Optimization of finite-build stellarator
+coils J. Plasma Phys.86 905860404
+[15] McGreivy N., Hudson S.R. and Zhu C. 2021 Optimized
+finite-build stellarator coils using automatic differentiation
+Nucl. Fusion61 026020
+[16] Zhu C., Zarnstorff M., Gates D. and Brooks A. 2020
+Designing stellarators using perpendicular permanent
+magnets Nucl. Fusion60 076016
+[17] Landreman M. and Zhu C. 2021 Calculation of permanent
+magnet arrangements for stellarators: a linear least-squares
+method Plasma Phys. Control. Fusion63 035001
+[18] Xu G.S., Lu Z.Y ., Chen D.H., Chen L., Zhang X.Y ., Wu X.Q.,
+Ye M.Y . and Wan B.N. 2021 Design of quasi-axisymmetric
+stellarators with varying-thickness permanent magnets
+based on Fourier and surface magnetic charges method
+Nucl. Fusion61 026025
+[19] Zhu C., Hammond K.C., Brown T., Gates D., Zarnstorff M.,
+Corrigan K., Sibilia M. and Feibush E. 2020 Topology
+optimization of permanent magnets for stellaratorsNucl.
+Fusion 60 106002
+[20] Kaptanoglu A.A., Qian T., Wechsung F. and Landreman M.
+2022 Permanent magnet optimization for stellarators as
+sparse regressionPhys. Rev. Appl.18 044006
+[21] Hammond K.C., Zhu C., Corrigan K., Gates D.A., Lown R.,
+Mercurio R., Qian T.M. and Zarnstorff M.C. 2022 Design of
+an arrangement of cubic magnets for a quasi-axisymmetric
+stellarator experimentNucl. Fusion62 126065
+[22] Qian T.M.et al2023 Design and construction of the MUSE
+permanent magnet stellaratorJ. Plasma Phys.
+89 955890502
+[23] Madeira M. and Jorge R. 2024 Tokamak to stellarator
+conversion using permanent magnetsPlasma Phys. Control.
+Fusion 66 085008
+[24] Lu Z.Y ., Xu G.S., Chen D.H., Chen L., Zhang X.Y ., Ye M.Y .
+and Wan B.N. 2021 Design of quasi-axisymmetric
+stellarators with variable-thickness perpendicular
+permanent magnets based on a two-step magnet design
+strategy Nucl. Fusion61 106028
+[25] Lu Z.Y ., Xu G.S., Chen D.H., Zhang X.Y ., Chen L., Ye M.Y .,
+Guo H.Y . and Wan B.N. 2022 Development of advanced
+stellarator with identical permanent magnet blocksCell
+Rep. Phys. Sci.3 100709
+[26] Kaptanoglu A.A., Conlin R. and Landreman M. 2023 Greedy
+permanent magnet optimizationNucl. Fusion63 036016
+[27] Hammond K.C. and Kaptanoglu A.A. 2024 Improved
+stellarator permanent magnet designs through combined
+discrete and continuous optimizationsComput. Phys.
+Commun. 299 109127
+[28] Elder T. and Boozer A.H. 2024 Current potential patchesPhys.
+Plasmas 31 102501
+[29] Kaptanoglu A.A., Langlois G.P. and Landreman M. 2024
+Topology optimization for inverse magnetostatics as sparse
+regression: application to electromagnetic coils for
+stellarators Comput. Methods Appl. Mech. Eng.418 116504
+[30] Anderson D.V ., Breazeal J., Finan C.H. and Johnston B.M.
+1976 ABCXYZ: vector potential (A) and magnetic field (B)
+code (C) for Cartesian (XYZ) geometry using general
+current elementsTechnical ReportUCRL-52029
+((Lawrence Livermore National Laboratory) (https://doi.
+org/10.2172/7130165)
+[31] Hanson J.D. and Hirshman S.P. 2002 Compact expressions for
+the Biot-Savart fields of a filamentary segmentPhys.
+Plasmas 9 4410
+[32] Tikhonov A.N. 1963 The solution of ill-posed problems and
+the regularization methodProc. USSR Acad. Sci.151 501
+(available at:https://www.mathnet.ru/eng/dan/v151/i3/
+p501)
+[33] Tikhonov A.N., Goncharsky A.V ., Stepanov V .V . and
+Yagola A.G. 1995Numerical Methods for the Solution of
+Ill-Posed Problems(Springer) (https://doi.org/10.1007/978-
+94-015-8480-7)
+[34] Landreman M. and Paul E. 2022 Magnetic fields with precise
+quasisymmetry for plasma confinementPhys. Rev. Lett.
+128 035001
+[35] Dewar R.L. and Hudson S.R. 1998 Stellarator symmetry
+Physica D 112 275
+[36] Aho A.V ., Hopcroft J.E. and Ullman J.D. 1983Data
+Structures and Algorithms(Addison-Wesley)
+[37] Pati Y .C., Rezaiifar R. and Krishnaprasad P.S. 1993
+Orthogonal matching pursuit: recursive function
+approximation with applications to wavelet decomposition
+Proc. 27th Asilomar Conf. on Signals, Systems and
+20
+Nucl. Fusion65 (2025) 046012 K.C. Hammond
+Computers (Pacific Grove, CA, USA)p 40 (https://doi.org/
+10.1109/ACSSC.1993.342465)
+[38] Zhang Z., Schwartz S., Wagner L. and Miller W. 2000 A
+greedy algorithm for aligning DNA sequencesJ. Comput.
+Biol. 7 203
+[39] Ruiz R. and Stützle T. 2007 A simple and effective iterated
+greedy algorithm for the permutation flowshop scheduling
+problem Eur. J. Oper. Res.177 2033
+[40] van der Laan D.C., Weiss J.D. and McRae D.M. 2019 Status of
+CORC cables and wires for use in high-field magnets and
+power systems a decade after their introductionSupercond.
+Sci. Technol.32 033001
+[41] Paz-Soldan C. 2020 Non-planar coil winding angle
+optimization for compatibility with non-insulated
+high-temperature superconducting magnetsJ. Plasma Phys.
+86 815860501
+[42] Dudt D.W. and Kolemen E. 2020 DESC: a stellarator
+equilibrium solverPhys. Plasmas27 102513
+[43] Wechsung F., Landreman M., Giuliani A., Cerfon A. and
+Stadler G. 2022 Precise stellarator quasi-symmetry can be
+achieved with electromagnetic coilsProc. Natl Acad. Sci.
+119 e2202084119
+[44] Gates D.A.et al2017 Recent advances in stellarator
+optimization Nucl. Fusion57 126064
+[45] Princeton Research Computing Stellar (available at:https://
+researchcomputing.princeton.edu/systems/stellar)
+(Accessed 16 January 2024)
+[46] Landreman M., Medasani B., Wechsung F., Giuliani A.,
+Jorge R. and Zhu C. 2021 SIMSOPT: a flexible framework
+for stellarator optimizationJ. Open Source Softw.6 3525
+[47] Ramachandran P and Varoquaux G 2011 Mayavi: 3D
+visualization of scientific dataComput. Sci. Eng.13 40–51
+[48] Frerichs H. 2024 FLARE: field line analysis and
+reconstruction for 3D boundary plasma modeling (https://
+doi.org/10.1088/1741-4326/ad7303)
+[49] Lazerson S.A., Schmitt J., Zhu C. and Breslau J. (STELLOPT
+Developers) 2020 STELLOPT (https://doi.org/10.11578/dc.
+20180627.6)
+[50] Björck Å. 2024Numerical Methods for Least Squares
+Problems 2nd edn (SIAM) (https://doi.org/10.1137/1.
+9781611977950)
+[51] Golub G.H., Lambers J. and Lim L.-H. 2005Lecture Notes
+For CME 302: Numerical Linear Algebra(University of
+Chicago) (available at:www.stat.uchicago.edu/∼lekheng/
+courses/302/notes12.pdf)
+[52] Rosenbluth M.N., Sagdeev R.Z., Taylor J.B. and
+Zaslavski G.M. 1966 Destruction of magnetic surfaces by
+magnetic field irregularitiesNucl. Fusion6 297
+21

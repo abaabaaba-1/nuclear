@@ -62,10 +62,16 @@ class Prompt:
         return prompt
 
     def _compose_prompt(self, ind_list: List[Item], experience: str, oper_type: str) -> str:
+        # Construct optional parts if they exist in info
+        design_space = self.info.get('design_space', '')
+        strategy_hints = self.info.get('strategy_hints', '')
+        
         parts = [
             self.info['description'],
+            design_space + "\n",
             self._make_requirement_prompt(),
             self._make_description_prompt(),
+            strategy_hints + "\n",
             experience,
             self._make_history_prompt(ind_list),
             self._make_instruction_prompt(oper_type)
@@ -93,6 +99,12 @@ class Prompt:
             if ind.constraints is not None:
                 constraint_str = ", ".join([f"{k}:{v}" for k, v in ind.constraints.items()])
                 entry += f", constraint values are: {constraint_str}"
+
+            # Add Gradient Hints if available
+            if getattr(ind, 'gradient_hints', None):
+                hints_str = "; ".join(ind.gradient_hints)
+                entry += f"\n   [GRADIENT HINTS]: {hints_str}"
+            
             entries.append(entry + "\n")
 
         return header + ''.join(entries)

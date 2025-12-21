@@ -9,7 +9,17 @@ import pandas as pd
 import importlib
 class ConfigLoader:
     def __init__(self, config_path="config.yaml"):
-        config_path = os.path.join('problem',config_path)
+        # Check if path exists as is
+        if not os.path.exists(config_path):
+            # Try prepending 'problem'
+            prob_path = os.path.join('problem', config_path)
+            if os.path.exists(prob_path):
+                config_path = prob_path
+            else:
+                # If neither exists, fall back to original behavior (which will likely fail later but keeps logic)
+                # or just use the prob_path to fail with the expected error message
+                pass
+                
         self.config = self._load_config(config_path)
 
     def _load_config(self, config_path):

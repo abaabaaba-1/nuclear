@@ -8,9 +8,9 @@ resume: False
 model:
   name: zgca,gemini-2.5-flash-nothinking 
   base_url: http://35.220.164.252:3888/v1/chat/completions
-  api_key: sk-UQSdTgxybYPRjg0WBq3v6NCxMMDNuIanMCdHy6mp9cGWPCTs
+  api_key: sk-HUoS2rJKxv8th2SknPKTkZ00B1NhdlgadEpysUj2tinRvTN3
   prompt_module: Prompt
-  experience_prob: 0.5
+  experience_prob: 0.0
   crossover_prob: 0.7
   mutation_prob: 0.3
   explore_prob: 0
@@ -26,14 +26,25 @@ evalutor_path: problem.stellarator_vmec.evaluator
 
 
 vmec:
-
-  project_path: "/home/wenhao/project/MOLLM-main/problem/stellarator_vmec/vmecpp/examples/data" 
-
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations" 
   input_file: "input.w7x" 
-
   output_file: "wout_w7x.nc" 
+  # WOUT文件保存策略 (优化性能)
+  # 选项: 'none' - 不保存 | 'debug' - 仅保存前5个 | 'top_k' - 保存top-k最优 | 'all' - 保存所有
+  save_wout_mode: 'none'  # 生产环境推荐使用'none'以减少I/O
+  save_wout_top_k: 10     # 当save_wout_mode='top_k'时，保存前多少个最优候选 
 
 optimization:
-  pop_size: 40
+  pop_size: 100
   eval_budget: 5000
-  log_freq: 50
+  log_freq: 100
+
+objective_ranges:
+  volume: [26.0, 29.5]
+  aspect_ratio: [10.5, 11.5]
+  magnetic_shear: [0.9, 1.0]
+
+llm_constraints:
+  max_coeff_changes: 12
+  low_order_max_rel_change: 0.03
+  high_order_max_rel_change: 0.08

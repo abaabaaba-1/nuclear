@@ -68,10 +68,10 @@ def calculate_and_log_metrics(
     uniqueness = unique_count / total_generated
     validity = (total_generated - failed_evals) / total_generated
 
-    # AUC计算仍然使用完整的历史数据
-    auc1 = top_auc(all_evaluated_items, top_n=1, finish=is_final_log, freq_log=10, max_oracle_calls=eval_budget)
-    auc10 = top_auc(all_evaluated_items, top_n=10, finish=is_final_log, freq_log=10, max_oracle_calls=eval_budget)
-    auc100 = top_auc(all_evaluated_items, top_n=100, finish=is_final_log, freq_log=10, max_oracle_calls=eval_budget)
+    # AUC计算仍然使用完整的历史数据，步长与主框架保持一致（freq_log=100）
+    auc1 = top_auc(all_evaluated_items, top_n=1, finish=is_final_log, freq_log=100, max_oracle_calls=eval_budget)
+    auc10 = top_auc(all_evaluated_items, top_n=10, finish=is_final_log, freq_log=100, max_oracle_calls=eval_budget)
+    auc100 = top_auc(all_evaluated_items, top_n=100, finish=is_final_log, freq_log=100, max_oracle_calls=eval_budget)
 
     valid_items = [item for item, _ in all_evaluated_items if item.scores is not None]
     

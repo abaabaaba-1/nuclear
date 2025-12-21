@@ -21,7 +21,10 @@ description: |
   1.  **EXPLORE THE FULL TRADE-OFF SPECTRUM:** When given parent candidates, generate new candidates that explore different points in the design space.
       - If parents are large but have low shear, try to modify coefficients to increase shear, even at the cost of some volume.
       - If parents are compact (low aspect ratio) but unstable, try to find a shape that is slightly less compact but stable.
-  2.  **MAKE BOLD AND DIVERSE CHANGES:** You are modifying the Fourier coefficients `RBC(m,n)` (radial) and `ZBS(m,n)` (vertical). Do not be afraid to make both small (e.g., 5-10%) and large (e.g., 50%) changes to these values to generate a variety of new shapes.
+  2.  **MAKE CONTROLLED, DIVERSE CHANGES:** You are modifying the Fourier coefficients `RBC(m,n)` (radial) and `ZBS(m,n)` (vertical). Keep every modification small enough to stay inside the VMEC feasible region:
+      - Low-order structure terms (`|m| ≤ 2`, `|n| ≤ 1`) may only change by **±3 %** per proposal.
+      - Higher-order shaping terms (`|m| > 2` or `|n| > 1`) may change by **±8 %** at most.
+      - Touch at most 12 coefficients per candidate unless explicitly told otherwise.
   # --- END: CRITICAL MISSION OVERVIEW ---
   
   # --- Supporting Context & Variable Effects ---
@@ -30,7 +33,7 @@ description: |
   -   `RBC(0,0)` roughly corresponds to the major radius.
   -   `RBC(1,0)` and `ZBS(1,0)` relate to the minor radius.
   -   Higher-order terms (e.g., `m=2, 3...`) control the shape (ellipticity, triangularity, etc.).
-  -   **Strategy:** To change the `aspect_ratio`, you should focus on `RBC(0,0)`, `RBC(1,0)`, and `ZBS(1,0)`. To improve stability and shear, you must explore changes to the higher-order shaping terms.
+  -   **Strategy:** To change the `aspect_ratio`, gently adjust `RBC(0,0)`, `RBC(1,0)`, and `ZBS(1,0)` within the ±3 % window. To improve stability and shear, explore the higher-order shaping terms with ≤ ±8 % tweaks.
   
 # --- Objective Definitions ---
 volume: 'Plasma volume in m^3. Higher is better.'
@@ -40,25 +43,19 @@ magnetic_shear: 'Magnetic shear (Iota_edge - Iota_axis). Higher is better.'
 # --- CRITICAL: Output Format Requirements ---
 example_output: |
   You MUST provide your final answer as a single, valid JSON object, and NOTHING else. Enclose the entire JSON object within `<candidate>` and `</candidate>` tags.
-  The JSON must contain a single key "new_coefficients", with the value being a dictionary of all the RBC/ZBS coefficients you wish to set.
-  You must provide ALL coefficients, even if they are unchanged from the parent.
+  The JSON must contain a single key "new_coefficients", with the value being a dictionary of only the RBC/ZBS coefficients you wish to modify.
+  Any coefficient you omit will stay at the current baseline value; do not resend the whole dictionary.
   
   Example of a valid output format:
   <candidate>
   {
       "new_coefficients": {
-          "RBC(0,0)": 5.6000e+00,
-          "ZBS(0,0)": 0.0000e+00,
-          "RBC(1,0)": 2.6500e-01,
-          "ZBS(1,0)": -2.4000e-01,
-          "RBC(2,0)": 1.7000e-03,
-          "ZBS(2,0)": -6.8000e-03,
-          "RBC(-6,1)": 5.9000e-04,
-          "ZBS(-6,1)": 1.3000e-03,
-          "RBC(-5,1)": -2.0000e-03,
-          "ZBS(-5,1)": -1.6000e-03,
-          "RBC(6,6)": 9.7000e-05,
-          "ZBS(6,6)": -1.8000e-04
+          "RBC(0,0)": 5.5650e+00,
+          "RBC(1,0)": 2.5980e-01,
+          "ZBS(1,0)": -2.3270e-01,
+          "RBC(-3,1)": -4.6190e-03,
+          "ZBS(-3,1)": -7.1700e-03,
+          "RBC(2,2)": 1.2500e-03
       }
   }
   </candidate>
@@ -67,14 +64,14 @@ example_output: |
 mutation_instruction: |
   **INSTRUCTION: Perform a MUTATION.**
   1. Analyze the parent's properties (volume, aspect_ratio, magnetic_shear) and its coefficients.
-  2. Apply targeted modifications to 5-10 of the `RBC`/`ZBS` coefficients to improve one objective, even if it slightly worsens another.
-  3. Return the FULL dictionary of coefficients, including your modifications.
+  2. Apply targeted modifications to at most 8 of the `RBC`/`ZBS` coefficients (respecting the ±2 % / ±5 % limits) to improve one objective, even if it slightly worsens another.
+  3. Return only the coefficients you actually changed.
 crossover_instruction: |
   **INSTRUCTION: Perform a CROSSOVER.**
   1.  Combine the features of the parents. For example, take the low-order coefficients (e.g., m=0, 1) from Parent A and the high-order shaping coefficients (m > 1) from Parent B.
   2.  You can also average coefficients from both parents.
   3.  Create a child that represents a novel compromise.
-  4.  Return the FULL dictionary of coefficients for the new child.
+  4.  Return only the coefficients you actually changed.
 
 # --- Final Rule ---
-other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Ensure all floating-point numbers are in scientific notation (e.g., 1.2345e-01).'
+other_requirements: 'Do not write any explanation, reasoning, or conversation. Your entire output must be ONLY the JSON block inside the `<candidate>` tags. Ensure all floating-point numbers are in scientific notation (e.g., 1.2345e-01) and keep them within the allowed percentage bounds.'

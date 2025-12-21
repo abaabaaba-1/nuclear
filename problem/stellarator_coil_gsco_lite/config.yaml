@@ -1,0 +1,74 @@
+# Stellarator Coil Design - GSCO-Lite (Simple Cell-Based)
+# 真正模仿 Hammond 2025 的 GSCO 方法
+# 每个 grid cell 只能有一个单位电流环（-1, 0, +1）
+
+exper_name: "stellarator_coil_gsco_lite"
+description: "True GSCO-like method with simple cell states"
+save_dir: "./results/stellarator_coil_gsco_lite"
+save_suffix: "gsco_lite_mollm_warm_start"
+
+resume: False
+
+# LLM配置
+model:
+  name: zgca,gemini-2.5-flash-nothinking 
+  base_url: http://35.220.164.252:3888/v1/chat/completions
+  api_key: sk-HUoS2rJKxv8th2SknPKTkZ00B1NhdlgadEpysUj2tinRvTN3
+  prompt_module: Prompt
+  experience_prob: 0.5
+  crossover_prob: 0.7
+  mutation_prob: 0.3
+  explore_prob: 0
+
+use_au: False
+
+# 3个优化目标
+goals: [f_B, f_S, I_max]
+optimization_direction: [min, min, min]
+
+prompt_info_path: ./problem/stellarator_coil_gsco_lite/coil.yaml
+evalutor_path: problem.stellarator_coil_gsco_lite.evaluator
+
+# 等离子体边界配置
+plasma_boundary:
+  wout_file: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/wout_w7x.nc"
+  plas_n: 32
+
+# GSCO-Lite 设计参数
+coil_design:
+  # 使用小网格便于LLM理解（12x12 = 144 cells）
+  wf_nPhi: 12             # toroidal方向cells
+  wf_nTheta: 12           # poloidal方向cells
+  
+  # 固定单位电流（模仿GSCO）
+  unit_current: 0.2       # MA，所有active cells使用相同电流
+  
+  # 绕组表面外扩系数
+  winding_surface_expansion: 1.2
+  
+  # 背景场配置（W7-X的wout文件已经包含优化的coils，设为false测试纯coil场）
+  use_background_field: true  # true: 包含TF背景场, false: 仅优化coil场
+  
+  # 评估并行度
+  eval_workers: 1
+
+# 优化参数
+optimization:
+  pop_size: 50        # Increased population size
+  eval_budget: 5000    # Increased budget for better convergence
+  num_offspring: 10   # Generate 10 new candidates per generation
+  log_freq: 50        # Log less frequently
+  parallel_offspring: false
+  initial_population_file: "warm_start_seeds.json"
+
+# 【已校准】基于实证测试的目标范围
+objective_ranges:
+  f_B: [12.3, 16.0]    # T²m² - Reduced max to increase gradient (was 50.0)
+  f_S: [0, 60]         # 活跃cell数 - Increased max to reduce sparsity penalty (was 144)
+  I_max: [0.2, 0.4]    # MA - Expanded range
+
+# LLM约束
+llm_constraints:
+  max_cell_changes: 10       # 每次最多修改10个cell
+  min_active_cells: 3        # 至少3个active cells
+  max_active_cells: 60       # 最多60个active cells

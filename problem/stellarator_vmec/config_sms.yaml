@@ -1,0 +1,49 @@
+exper_name: "Stellarator_VMEC_3_Obj_Optimization"
+description: "Optimizing a 3D stellarator plasma boundary using VMEC++ to find optimal Pareto solutions for volume, aspect ratio, and magnetic shear."
+save_dir: "./moo_results/"
+save_suffix: "stellarator_vmec_3_obj"
+
+resume: False
+
+model:
+  name: zgca,gemini-2.5-flash-nothinking 
+  base_url: http://35.220.164.252:3888/v1/chat/completions
+  api_key: sk-HUoS2rJKxv8th2SknPKTkZ00B1NhdlgadEpysUj2tinRvTN3
+  prompt_module: Prompt
+  experience_prob: 0.0
+  crossover_prob: 0.7
+  mutation_prob: 0.3
+  explore_prob: 0
+use_au: False
+
+
+goals: [volume, aspect_ratio, magnetic_shear]
+optimization_direction: [max, min, max]
+
+
+prompt_info_path: ./problem/stellarator_vmec/vmec.yaml
+evalutor_path: problem.stellarator_vmec.evaluator
+
+
+vmec:
+
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_sms" 
+
+  input_file: "input.w7x" 
+
+  output_file: "wout_w7x_sms.nc" 
+
+optimization:
+  pop_size: 100
+  eval_budget: 5000
+  log_freq: 100
+
+objective_ranges:
+  volume: [10.0, 45.0]
+  aspect_ratio: [8.0, 15.0]
+  magnetic_shear: [0.1, 0.8]
+
+llm_constraints:
+  max_coeff_changes: 12
+  low_order_max_rel_change: 0.03
+  high_order_max_rel_change: 0.08

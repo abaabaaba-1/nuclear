@@ -1,283 +1,101 @@
-# MOLLM
+## Benchmark 验收结果
 
-This repository contains the source code and scripts for the MOLLM project. The project is organized as follows:
-
-## Project Structure
-
-/home/v-nianran/src/MOLLM <br>
-├── algorithm <br>
-│ ├── base.py <br>
-│ ├── MOO.py <br>
-│ └──  PromptTemplate.py <br>
-├── data <br>
-│ ├── data_goal5.json <br>
-│ └── zinc.tab <br>
-├── problem <br>
-│ ├── molecules <br>
-│ │ ├── evaluator.py <br>
-│ │ ├── goal5_gemini.yaml <br>
-│ │ └── molecule.yaml <br>
-├── eval.py <br>
-├── main.py <br>
-└── test.ipynb <br>
-
-### Running the experiments
-  - `python main.py molecules/goal5_gemini.yaml`: You need to define a config file to run, this is an example, you can use it as a template, the path is set to under the problem directory.
-  - To resume training, just set `resume: True` in your config file. 
-
-### Description of Files and Directories
-
-- **main.py**
-  - The main entry point for training and testing the MOLLM model.
-
-- **model/**
-  - `MOLLM.py`: Contains the implementation of the MOLLM model.
-  - `LLM.py`: Implemetation of LLM model
-  - `MOScigpt.py`: MO SciGPT model and its algorithm.
-  - `load_Scigpt.py`: Utility script to load the SciGPT model.
-  - `util.py`: Utility functions used across the project, including NSGA-II currently.
-
-- **test.ipynb**
-  - Jupyter notebook containing experiments, visualizations, or other exploratory analysis related to the MOLLM project.
-  - Including the tutorial of how to modify the main components
-
-## Getting Started
-To define a new optimization problem, you only need to create the following three files:
-
-1. **`config.yaml`** – This file specifies the algorithm parameters for optimization.  
-   📁 Example: `problem/molecules/goal5_gemini.yaml`
-
-2. **`molecule.yaml`** – This file contains metadata, problem definitions, and textual descriptions.  
-   A full tutorial is provided below.  
-   📁 Example: `problem/molecules/molecule.yaml`
-
-3. **`evaluator.py`** – This Python file defines how the generated solutions are evaluated. 
-    A full tutorial is provided below.  
-   📁 Example: `problem/molecules/evaluator.py`
-
-# 🧬 YAML File Specification for Multi-Objective Molecular Optimization
-
-This project uses a structured YAML format to define tasks for multi-objective molecular optimization. Each YAML file outlines the task description, output format, mutation/crossover guidelines, and optimization objectives. This format ensures consistency and clarity when interfacing with molecule generation and optimization models.
+本项目目前包含两个物理基准任务：  
+GSCO-Lite（离散线圈稀疏化）和 VMEC（三目标等离子体边界优化）。  
+我们为这两个 benchmark 均编写了独立的健康检查脚本，并对当前配置进行了验收。
 
 ---
 
-## 📁 File Structure Overview
+### GSCO-Lite（stellarator_coil_gsco_lite）
 
-A standard YAML file should contain the following fields:
+- **健康检查脚本**
+  - 入口：[problem/stellarator_coil_gsco_lite/health_check_gsco_lite.py](cci:7://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_coil_gsco_lite/health_check_gsco_lite.py:0:0-0:0)
+  - 运行示例：  
+    `python problem/stellarator_coil_gsco_lite/health_check_gsco_lite.py 200 2025`
+  - 功能：
+    - 使用与正式实验相同的 `ConfigLoader`、[SimpleGSCOEvaluator](cci:2://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_coil_gsco_lite/evaluator.py:112:0-744:21) 和 [generate_initial_population](cci:1://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/evaluator.py:95:0-158:35)。
+    - 对一批候选 coil cell 配置进行评估，统计：
+      - `f_B`（场误差）、`f_S`（活跃 cell 数）、`I_max`（最大电流）的原始分布。
+      - 归一化分布及在 0 / 1 处的 clip 率。
 
-| Field Name              | Required | Description |
-|-------------------------|----------|-------------|
-| `description`           | ✅       | A brief overview of the task; describe what the model should achieve |
-| `example_output`        | ✅       | Defines the expected output format (must include `<candidate>` tags and your answer format) |
-| `mutation_instruction`  | ⭕       | Suggested mutation operations to guide molecule structure changes |
-| `crossover_instruction` | ⭕       | Suggested crossover operations (optional, can be left empty) |
-| `other_requirements`    | ⭕       | Any additional constraints, e.g., "Molecules must be valid" |
-| Optimization Objectives (e.g. `qed`, `sa`) | ✅ | One or more task-specific objectives, each described in a dedicated field |
+- **当前 `objective_ranges` 配置**
+  - `f_B:   [12.3, 16.0]`
+  - `f_S:   [0, 60]`
+  - `I_max: [0.2, 0.4]`
 
----
+- **健康检查结论（基于随机 + warm-start 初始种群）**
+  - **f_B（场误差）**
+    - 原始值约在 `13.3–15.5 T²m²` 之间，均值约 `14.3`。
+    - 归一化后大致在 `[0.26, 0.88]`，几乎**没有被剪裁到 0 或 1**。
+    - 说明当前范围对 f_B 来说非常合适，能提供足够的区分度与梯度。
+  - **f_S（活跃 cell 数）**
+    - 原始值在 `3–60` 之间，均值约 `31`。
+    - 归一化 clip 率：
+      - `@0`: 约 `0%`
+      - `@1`: 约 `40%` 左右（集中在上界 60）。
+    - 这些被剪到 1 的样本对应“几乎占满所有 cell 的极度稠密解”，物理上本来就应视为同一档“最坏 sparsity”，因此这种上界饱和是**可接受且符合设计预期**的。
+  - **I_max（最大电流）**
+    - 原始值在 `0.2–0.4 MA` 之间，分布非常窄。
+    - 归一化 clip 率典型为：
+      - `@0`: ≈ `20–30%`
+      - `@1`: ≈ `70–80%`
+    - 表明在当前 cell→segment 拓扑与固定单位电流下，`I_max` 行为更接近一个“粗粒度约束”（安全 / 超限），而不是提供细腻梯度的一等公民目标。
+    - 在算法设计层面，应将 `I_max` 主要视为**电流安全约束**或强惩罚项，而不是期望它提供与 `f_B` 同级别的连续优化信号。
 
-## 📝 Example YAML File (problem/molecules/molecule.yaml)
-
-```yaml
-description: This task is to propose better molecules according to multiple objectives.
-
-example_output: 'Each output new candidate must start with <candidate> and end with </candidate> in SMILES format. Example: <candidate>c1ccccc1</candidate>'
-
-mutation_instruction: 'Example operations include:
-  1. Modify functional groups
-  2. Replace atoms or bonds
-  3. Add/remove small substituents
-  4. Ring modifications
-  5. Stereochemistry changes
-  6. Property-specific optimizations
-  '
-
-crossover_instruction: ''
-
-other_requirements: The output molecules should be valid.
-
-qed: QED (Quantitative Estimate of Drug-likeness) is a measure that quantifieshow
-  'drug-like' a molecule is based on properties such as molecular weight,solubility,
-  and the number of hydrogen bond donors and acceptors.Adding functional groups that
-  improve drug-like properties (e.g., small molecular size,balanced hydrophilicity)
-  can increase QED, while introducing large, complex, or highly polar groups can decrease
-  it.
-logp: LogP is the logarithm of the partition coefficient, measuring the lipophilicityor
-  hydrophobicity of a molecule, indicating its solubility in fats versus water.Adding
-  hydrophobic groups (e.g., alkyl chains or aromatic rings) increases LogP,while adding
-  polar or hydrophilic groups (e.g., hydroxyl or carboxyl groups) decreases it.
-```
-
-# 📊 Evaluator Guide
-
-In each specific problem directory under `problem/`, you need to create an `evaluator.py` file to define a custom evaluation logic. This file should contain a class named `RewardingSystem` that evaluates the quality of generated results.
+> 总体结论：在当前 `objective_ranges` 下，GSCO-Lite benchmark 的数值行为干净、可用。  
+> `f_B` 与 `f_S` 能提供有效梯度；`I_max` 作为粗约束使用是合理的。
 
 ---
 
-## ✅ Required Structure
+### VMEC（三目标 W7-X 等离子体边界优化）
 
-The `evaluator.py` file **must** define the following structure:
+- **健康检查脚本**
+  - 入口：[problem/stellarator_vmec/health_check_vmec.py](cci:7://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/health_check_vmec.py:0:0-0:0)
+  - 运行示例：  
+    `python problem/stellarator_vmec/health_check_vmec.py 100 42`
+  - 功能：
+    - 使用与正式实验相同的 `ConfigLoader`、[RewardingSystem](cci:2://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/evaluator.py:168:0-581:26)、[generate_initial_population](cci:1://file:///home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/evaluator.py:95:0-158:35)。
+    - 实际调用 VMEC++ 求解，并通过现有 evaluator：
+      - 计算 `volume / aspect_ratio / magnetic_shear`。
+      - 判定收敛性（`fsqr/fsqz/fsql <= ftolv`）及 Mercier 稳定性。
+      - 调用 `_apply_penalty + _transform_objectives` 得到最终归一化分数。
+    - 报告：
+      - 收敛率、Mercier 稳定率、整体可行率。
+      - 三个目标的原始分布、归一化分布及 clip 率。
 
-```python
-def generate_initial_population(config,seed):
-    # Arbitrary initial population, in strings form. The format should be consistent to the output format
-    # The config and seed will be passed, you can use it or not
-    return samples
+- **当前 `objective_ranges` 配置**
+  - `volume:         [26.0, 29.5]`
+  - `aspect_ratio:   [10.5, 11.5]`
+  - `magnetic_shear: [0.9, 1.0]`
 
-class RewardingSystem:
-    def __init__(self, config):
-        # Initialization method (config is passed in)
-        pass
+- **健康检查结论（样本数 100）**
+  - **约束可行性**
+    - 收敛率（fsqr/fsqz/fsql ≤ ftolv）：约 `99%`（99/100）。
+    - Mercier 稳定率（min_mercier ≥ 0）：约 `99%`（99/100）。
+    - 同时收敛且 Mercier 稳定的可行率：约 `99%`。
+    - 表明在当前 LLM/GA 的系数扰动约束下，绝大部分候选都落在 VMEC 的**稳定可解空间**内。
+  - **volume**
+    - 可行解体积集中在 `[26, 29.5] m³` 附近，归一化统计：
+      - `Norm mean ≈ 0.50`，`clip @0 ≈ 0%`，`clip @1 ≈ 1%`（唯一的 1% 来自被惩罚的不可行解）。
+    - 说明 `volume` 的范围选取合理，不会出现大面积饱和。
+  - **aspect_ratio**
+    - 可行解纵横比集中在 `[10.5, 11.5]`，归一化：
+      - `Norm mean ≈ 0.47`，`clip @0 ≈ 0%`，`clip @1 ≈ 1%`。
+    - 说明在当前扰动下，aspect ratio 也具有足够的动态范围。
+  - **magnetic_shear**
+    - 可行解磁剪切在 `[0.9, 1.0]` 内变化，归一化：
+      - `Norm mean ≈ 0.57`，`clip @0 ≈ 0%`，`clip @1 ≈ 1%`。
+    - 同样没有明显的 0/1 饱和问题。
 
-    def evaluate(self, items):
-        # Main evaluation function
-        return items, log_dict
-```
-
----
-## Generate initial population
-
-You are free to define the initial population. Each candidate must be a string, and its format must be consistent with what your evaluator expects. It is assumed these strings can be parsed and evaluated by your `evaluate` method.
-
-## 🧩 Input and Output of `evaluate`
-
-* **Input**: `items` is a list of Item objects (algorithm.base.Item). Each dictionary represents a result item to evaluate.
-* **Each item must be given a dict containing the following keys**:
-
-| Key                   | Description                                                                                                |
-|----------------------|------------------------------------------------------------------------------------------------------------|
-| `original_results`    | The raw metrics (e.g., `{'sa': 2.22, 'qed': 0.68}`). These are used for logging or visualization.          |
-| `transformed_results` | The normalized and minimized version of the original results. Values must be in the `[0, 1]` range.        |
-| `overall_score`       | A scalar value representing the overall quality of the item. Higher is better. This is fully customizable. |
-
-* **Then simply use item.assign_results(results) to assign the result to each item**
-* **If you want to change the value of an item, just use `item.value=xxx`**
-### 🔸 Required Fields in `log_dict`
-
-The `evaluate` function must return a second output: a dictionary called `log_dict` for tracking evaluation statistics. The following fields are **required**:
-
-| Key            | Description                                                                 |
-|----------------|-----------------------------------------------------------------------------|
-| `invalid_num`  | Number of invalid candidates (e.g., failed parsing, wrong format, etc.)     |
-| `repeated_num` | Number of duplicate candidates in the current generation                    |
-
-If you do not compute these metrics in your task, simply return default values:
-
-```python
-log_dict = {
-    "invalid_num": 0,
-    "repeated_num": 0
-}
-```
+> 总体结论：在 `objective_ranges = {volume: [26,29.5], aspect_ratio: [10.5,11.5], magnetic_shear: [0.9,1.0]}` 下，  
+> VMEC benchmark 的收敛性、稳定性与归一化范围均表现良好，可直接用于多目标优化与 LLM 对比实验。
 
 ---
 
+### 小结
 
-## 🔄 About `transformed_results`
-
-You need to manually normalize and transform the original results so they are suitable for multi-objective optimization. The general rules are:
-
-1. **Normalization**: All values must be in the range `[0, 1]`.
-2. **Minimization Format**: The optimization system assumes all objectives are "to minimize". You should convert maximization metrics accordingly.
-
-### Example Transformation
-
-Assume you are working with:
-
-- **QED** (Quantitative Estimate of Drug-likeness): originally a maximization metric in `[0, 1]`  
-  → Transformation: `1 - qed`
-- **SA** (Synthetic Accessibility): originally a minimization metric, roughly in `[0, 10]`  
-  → Transformation: `sa / 10`
-
-```python
-transformed_results = {
-    'sa': original['sa'] / 10,
-    'qed': 1 - original['qed']
-}
-```
-
----
-
-## 📈 Defining `overall_score`
-
-You must define a scalar score (`overall_score`) for each item. This value will be used for sorting and comparison — **the higher, the better**.
-
-### Equal-weight example:
-
-```python
-overall_score = len(transformed_results) - np.sum(list(transformed_results.values()))
-```
-
-### Custom weighted example:
-
-```python
-weights = {'qed': 0.7, 'sa': 0.3}
-overall_score = 1 - (weights['qed'] * transformed_results['qed'] +
-                     weights['sa'] * transformed_results['sa'])
-```
-
-You are free to implement any custom scoring logic as long as the final result is a single float value.
-
----
-
-## 📁 File Placement
-
-Your `evaluator.py` file should be placed in the corresponding problem directory, example:
-
-```
-problem/
-└── molecules/
-    ├── evaluator.py  ✅
-    └── config.yaml
-```
-
----
-
-## 🧪 Sample `evaluator.py` Template
-
-```python
-import numpy as np
-class RewardingSystem:
-    def __init__(self, config):
-        self.config = config
-
-    def evaluate(self, items):
-        invalid_num = 0
-        repeated_num = 0
-
-        for item in items:
-            original = item['original_results']
-
-            transformed = {
-                'sa': original['sa'] / 10,
-                'qed': 1 - original['qed']
-            }
-
-            overall_score = len(transformed) - np.sum(list(transformed.values()))
-
-            results = {
-                'original_results': original,
-                'transformed_results': transformed,
-                'overall_score': overall_score
-            }
-
-            item.assign_results(results)
-
-        log_dict = {
-            'invalid_num': invalid_num,
-            'repeated_num': repeated_num
-        }
-
-        return items, log_dict
-```
-
----
-
-## ❗Notes
-
-- `evaluate()` modifies each `item` in-place.
-- `transformed_results` must include normalized and minimization-converted values.
-- `overall_score` must be a scalar float, with **higher values indicating better results**.
-- You are free to extend the evaluation logic as needed per problem.
-
----
+- **GSCO-Lite 与 VMEC 两个 benchmark 均经过独立健康检查脚本验证：**
+  - 数值范围（`objective_ranges`）不会大面积饱和。
+  - 不可行解会被明确惩罚，不会误当作“极优解”。
+  - 约束（收敛性、Mercier 稳定性、电流上限等）的行为在日志中可清晰追踪。
+- 推荐在任何修改物理配置或目标范围后，先运行对应的 health check 脚本，重新生成一份统计作为新的“Benchmark 验收结果”记录。
