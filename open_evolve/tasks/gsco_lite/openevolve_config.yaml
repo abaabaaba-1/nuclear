@@ -1,0 +1,17 @@
+llm:
+  # Use any OpenAI-compatible endpoint. If you have a custom gateway, set api_base accordingly.
+  # Example (OpenAI): "https://api.openai.com/v1"
+  api_key: "${OPENAI_API_KEY}"
+  temperature: 0.7
+  max_tokens: 2048
+
+database:
+  population_size: 64
+  num_islands: 1
+
+prompt:
+  num_top_programs: 2
+  num_diverse_programs: 2
+
+# Reproducibility
+random_seed: 42

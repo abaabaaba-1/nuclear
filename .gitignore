@@ -17,12 +17,14 @@ env/
 .vscode/
 .idea/
 
-moo_results/
-*.pkl
-*.png
-*.jpeg
-*.jpg
-*.log
+
 
 *.bak
 *.$$$
+MOLLM_env/
+
+
+moo_results/
+logs/
+!results/**/logs/
+!results/**/logs/**

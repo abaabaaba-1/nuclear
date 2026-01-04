@@ -1,0 +1,154 @@
+# Stellarator Coil Design - GSCO-Lite Method
+# 基于 Hammond 2025 的 GSCO 算法思想
+
+description: |
+  You are designing stellarator coils using a SIMPLE GRID-BASED method.
+  
+  REPRESENTATION:
+  - The wireframe is a 12×12 grid (toroidal × poloidal)
+  - Each cell can be in one of 3 states:
+    * 0: No current loop
+    * +1: Clockwise current loop (fixed magnitude)
+    * -1: Counter-clockwise current loop (fixed magnitude)
+  
+  - All active cells use the SAME current magnitude (0.2 MA)
+  - You only decide: which cells are active and their polarity
+  
+  KEY ADVANTAGE:
+  - Much simpler than selecting from thousands of loop IDs!
+  - You work with a 12×12 = 144-cell 2D grid
+  - Easy to visualize and reason about spatial patterns
+  
+  PHYSICS INTUITION:
+  - Think of the grid as wrapping around the plasma (like a map projection)
+  - Cells on the inboard side (θ ≈ 180°) often need more correction
+  - Counter-flowing neighbors (±1) can create complex field shapes
+  - Clusters of same-polarity cells form saddle coils
+  
+  STRATEGY:
+  - Start with 5-10 active cells
+  - Add cells in regions where you expect high field error
+  - Use opposite polarities to cancel unwanted fields
+  - Keep total active cells under 30 for simplicity
+
+# Output format: Grid State Configuration
+example_output: |
+  Each output must start with <candidate> and end with </candidate> in JSON format.
+  
+  Example 1 (List format - easier to read):
+  <candidate>{"cells": [[3, 5, 1], [8, 2, -1], [10, 11, 1]]}</candidate>
+  Each entry is [phi_index, theta_index, polarity]
+  
+  Example 2 (Explicit format - more verbose):
+  <candidate>{"cells": [{"phi": 3, "theta": 5, "state": 1}, {"phi": 8, "theta": 2, "state": -1}]}</candidate>
+  
+  Use whichever format is clearer. Both are valid.
+
+# Mutation operations
+mutation_instruction: |
+  Example operations include:
+  1. **Add a cell**: Pick a random inactive cell, set it to +1 or -1
+  2. **Remove a cell**: Set an active cell to 0
+  3. **Flip polarity**: Change +1 to -1 or vice versa
+  4. **Add cluster**: Activate 2-3 neighboring cells with same polarity
+  5. **Add counter-pair**: Activate two nearby cells with opposite polarities
+  6. **Shift pattern**: Move a cluster of cells by a few positions
+  
+  SMART MUTATIONS:
+  - **USE THE GRADIENT HINTS**: The history candidates contain "GRADIENT HINTS". These are mathematically calculated top moves to reduce field error (f_B).
+  - If a hint says "ADD (phi,theta)", try adding that cell.
+  - If a hint says "FLIP", try flipping it.
+  - If f_B is still high, ADD cells (increase complexity)
+  - If f_B is low but f_S is high, REMOVE ineffective cells
+  - If a region has unbalanced field, add COUNTER-FLOWING cells
+
+crossover_instruction: |
+  Crossover operations:
+  1. Combine active cells from both parents
+  2. If both parents have the same cell active with different polarities, randomly pick one
+  3. If total cells exceed max_active_cells, remove least frequent ones
+
+other_requirements: |
+  Constraints:
+  - Number of active cells: 3-50
+  - Valid indices: phi ∈ [0, 11], theta ∈ [0, 11]
+  - Valid states: {-1, 0, +1}
+  
+  GRID GEOMETRY:
+  - phi=0 and phi=11 are neighbors (toroidal wrapping)
+  - theta=0 and theta=11 are neighbors (poloidal wrapping)
+  - Think of it as a torus topology
+
+# Objective descriptions
+
+f_B: |
+  Magnetic Field Error: f_B = (1/2) ∫∫ (B·n)² dS [T²m²]
+  
+  PRIMARY OBJECTIVE - Minimize this!
+  
+  Physical meaning:
+  - Measures how well the coil field cancels the unwanted normal component
+  - Lower f_B → better plasma confinement
+  - Typical range: 10⁻⁶ to 10⁻³ T²m²
+  
+  How to improve:
+  - Add cells in regions with high field error
+  - Use counter-flowing cells to cancel specific field components
+
+f_S: |
+  Sparsity: Number of active cells
+  
+  Simpler coils are easier to manufacture and assemble.
+  Aim for 10-20 active cells if possible.
+  
+  Trade-off: More cells → lower f_B, but higher complexity
+
+I_max: |
+  Maximum Current: Maximum segment current magnitude [MA]
+  
+  Should stay close to the unit_current (0.2 MA).
+  If much higher, it means cells are overlapping excessively.
+
+# Design space information
+
+design_space: |
+  GRID STRUCTURE:
+  - 12 toroidal positions (phi): around the major circumference
+  - 12 poloidal positions (theta): around the minor circumference
+  - Total: 144 cells
+  
+  SPATIAL MAPPING:
+  - phi=0°: Toroidal angle 0 (usually outboard midplane)
+  - phi=90°: Quarter torus away
+  - theta=0°: Poloidal angle 0 (usually outboard)
+  - theta=180°: Inboard side
+  
+  TYPICAL PATTERNS:
+  - Modular coils: Vertical columns (constant phi, varying theta)
+  - Saddle coils: Rectangular patches (2×2 to 4×4 cells)
+  - Fine tuning: Isolated cells or pairs
+
+# Optimization strategy hints
+
+strategy_hints: |
+  BEGINNER STRATEGY:
+  1. Start with ~10 cells randomly placed with random polarities
+  2. Evaluate and check which objective is limiting
+  3. If f_B is high: Add more cells strategically
+  4. If f_S is high: Remove cells that contribute little
+  
+  INTERMEDIATE STRATEGY:
+  1. Identify spatial patterns in current successful solutions
+  2. Create clusters of 2-4 cells with same polarity → forms saddle coils
+  3. Use counter-flowing pairs to fine-tune specific regions
+  4. Balance inboard vs outboard coverage
+  
+  ADVANCED STRATEGY:
+  1. Exploit stellarator symmetry (if nfp=5, patterns should repeat every 72°)
+  2. Use biological analogy: cells are "genes", active pattern is "phenotype"
+  3. Learn from history: if certain cell positions keep appearing, they are important
+  
+  DEBUGGING:
+  - If all mutations fail → try larger changes (add/remove 5 cells at once)
+  - If stuck in local minimum → introduce random exploration (10% of cells)
+  - If f_B oscillates → reduce mutation rate, fine-tune existing cells

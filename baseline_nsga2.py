@@ -16,11 +16,7 @@ from baseline_ga import BaselineMOO
 from model.util import nsga2_selection 
 
 class NSGA2BaselineMOO(BaselineMOO):
-    """
-    NSGA-II 基线类。
-    该类继承自增强后的 BaselineMOO，自动获得强探索能力。
-    它唯一的作用是重写种群选择方法，以采用 NSGA-II 策略。
-    """
+
     def __init__(self, reward_system, llm, property_list, config, seed):
         super().__init__(reward_system, llm, property_list, config, seed)
         print("--- NSGA-II Baseline MOO has been activated (inherits ENHANCED BaselineMOO) ---")

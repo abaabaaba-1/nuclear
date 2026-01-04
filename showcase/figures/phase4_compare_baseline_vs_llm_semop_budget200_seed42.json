@@ -1,0 +1,92 @@
+{
+  "baseline_run_dir": "results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4_Baseline_Budget200_seed42_20251229T041349",
+  "llm_run_dir": "results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4_LLM_SemOp_Budget200_OpenAI_seed42_20251229T042118",
+  "hv_ref_point": [
+    1.1,
+    1.1,
+    1.1
+  ],
+  "objectives": [
+    "f1_min",
+    "f2_min",
+    "f3_min"
+  ],
+  "baseline": {
+    "n_rows": 200,
+    "status_counts": {
+      "ok": 200
+    },
+    "n_feasible": 200,
+    "n_nd": 1,
+    "curves": {
+      "evals": [
+        50,
+        100,
+        150,
+        200
+      ],
+      "hv_best": [
+        0.45296487430624977,
+        0.45296487430624977,
+        0.45296487430624977,
+        0.45296487430624977
+      ],
+      "top1": [
+        0.6950564021621295,
+        0.6950564021621295,
+        0.6950564021621295,
+        0.6950564021621295
+      ],
+      "feasible_rate": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "final": {
+      "hv_best": 0.45296487430624977,
+      "top1": 0.6950564021621295,
+      "feasible_rate": 1.0
+    }
+  },
+  "llm_semop": {
+    "n_rows": 200,
+    "status_counts": {
+      "ok": 200
+    },
+    "n_feasible": 200,
+    "n_nd": 1,
+    "curves": {
+      "evals": [
+        50,
+        100,
+        150,
+        200
+      ],
+      "hv_best": [
+        0.45296487430624977,
+        0.45296487430624977,
+        0.45296487430624977,
+        0.45296487430624977
+      ],
+      "top1": [
+        0.6950564021621295,
+        0.6950564021621295,
+        0.6950564021621295,
+        0.6950564021621295
+      ],
+      "feasible_rate": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "final": {
+      "hv_best": 0.45296487430624977,
+      "top1": 0.6950564021621295,
+      "feasible_rate": 1.0
+    }
+  }
+}

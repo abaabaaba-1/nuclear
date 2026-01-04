@@ -18,6 +18,7 @@ class Item:
         self.scores = None
         self.property = None
         self.constraints = None
+        self.gradient_hints = None
 
     def assign_results(self,results:Dict):
         self.property = results['original_results']
@@ -25,6 +26,8 @@ class Item:
         self.total = results['overall_score']
         if 'constraint_results' in results:
             self.constraints = results['constraint_results']
+        if 'gradient_hints' in results:
+            self.gradient_hints = results['gradient_hints']
     
     def check_keys(self, results: Dict):
         allowed_keys = {
@@ -32,6 +35,7 @@ class Item:
             'transformed_results',
             'overall_score',
             'constraint_results',  # optional
+            'gradient_hints',      # optional - for LLM guidance
         }
         for key in results:
             if key not in allowed_keys:

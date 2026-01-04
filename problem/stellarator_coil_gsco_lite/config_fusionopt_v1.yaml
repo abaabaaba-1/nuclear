@@ -1,0 +1,63 @@
+exper_name: "Stellarator_GSCO_FusionOpt_v1"
+description: "FusionOpt v1 + Phase3 HeuRepairOp full-budget run for GSCO-Lite."
+resume: false
+
+goals: [f_B, f_S, I_max]
+optimization_direction: [min, min, min]
+
+evalutor_path: problem.stellarator_coil_gsco_lite.evaluator
+
+plasma_boundary:
+  wout_file: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/wout_w7x.nc"
+  plas_n: 16
+
+coil_design:
+  wf_nPhi: 12
+  wf_nTheta: 12
+  unit_current: 0.2
+  winding_surface_expansion: 1.2
+  use_background_field: true
+  eval_workers: 1
+
+optimization:
+  pop_size: 20
+  eval_budget: 2000
+  log_freq: 20
+
+objective_ranges:
+  f_B: [12.3, 16.0]
+  f_S: [0, 60]
+  I_max: [0.2, 0.4]
+
+llm_constraints:
+  max_cell_changes: 10
+  min_active_cells: 3
+  max_active_cells: 60
+
+protocol:
+  problem_id: "stellarator_coil_gsco_lite"
+  algo_id: "fusionopt_v1"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_coil_gsco_lite"
+
+fusionopt:
+  use_heu_repair: true
+  offspring_per_gen: 20
+  batch_eval_size: 20
+  max_attempts_per_child: 50
+  operator_weights:
+    std_crossover: 0.7
+    std_mutation: 0.3
+    std_resample: 0.0
+  gate:
+    dedup_scope: "run"
+    canonicalize_json: true
+  heu_repair:
+    gsco:
+      min_manhattan_dist: 0
+      drop_isolated: true
+      smooth_polarity: true

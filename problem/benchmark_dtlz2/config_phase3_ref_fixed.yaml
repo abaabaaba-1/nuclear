@@ -1,0 +1,61 @@
+exper_name: "DTLZ2_5Obj_Phase3_Ref_Fixed"
+description: "Phase 3 benchmark run for DTLZ2 (5 objectives) with fixed reference vectors."
+save_dir: "./moo_results/"
+save_suffix: "dtlz2_5obj_phase3_ref_fixed"
+
+resume: false
+
+model:
+  name: "zgca,gemini-2.5-flash-nothinking"
+  base_url: "http://localhost:8000/v1/chat/completions"
+  api_key: ""
+  prompt_module: Prompt
+  experience_prob: 0.0
+  crossover_prob: 0.7
+  mutation_prob: 0.3
+  explore_prob: 0
+use_au: false
+
+goals: [f1, f2, f3, f4, f5]
+optimization_direction: [min, min, min, min, min]
+
+evalutor_path: problem.benchmark_dtlz2.evaluator
+
+benchmark:
+  name: "dtlz2"
+  n_var: 12
+  pareto_n_points: 2000
+
+optimization:
+  pop_size: 50
+  eval_budget: 500
+  log_freq: 10
+
+llm_constraints:
+  max_coeff_changes: 12
+  low_order_max_rel_change: 0.03
+  high_order_max_rel_change: 0.08
+
+krvea:
+  n_init: 50
+  n_infill: 10
+  n_candidates: 250
+  n_partitions: 8
+  kappa: 2.0
+  alpha: 2.0
+  beta: 1.0
+  gp_alpha: 1.0e-3
+  max_train_size: 200
+
+reference_agent:
+  enabled: false
+
+protocol:
+  problem_id: "benchmark_dtlz2"
+  algo_id: "k_rvea_ref_fixed"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/benchmark_dtlz2"

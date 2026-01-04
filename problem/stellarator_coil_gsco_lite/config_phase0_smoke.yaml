@@ -1,0 +1,47 @@
+exper_name: "Stellarator_Coil_GSCO_Lite_Phase0_Smoke"
+description: "Phase 0 smoke run for GSCO-Lite baselines (f_B, f_S, I_max)."
+resume: False
+
+goals: [f_B, f_S, I_max]
+optimization_direction: [min, min, min]
+
+prompt_info_path: ./problem/stellarator_coil_gsco_lite/coil.yaml
+evalutor_path: problem.stellarator_coil_gsco_lite.evaluator
+
+plasma_boundary:
+  wout_file: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/wout_w7x.nc"
+  plas_n: 16
+
+coil_design:
+  wf_nPhi: 12
+  wf_nTheta: 12
+  unit_current: 0.2
+  winding_surface_expansion: 1.2
+  use_background_field: true
+  eval_workers: 1
+
+optimization:
+  pop_size: 20
+  eval_budget: 2000
+  log_freq: 20
+  num_offspring: 10
+  parallel_offspring: false
+
+objective_ranges:
+  f_B: [12.3, 16.0]
+  f_S: [0, 60]
+  I_max: [0.2, 0.4]
+
+llm_constraints:
+  max_cell_changes: 10
+  min_active_cells: 3
+  max_active_cells: 60
+
+protocol:
+  problem_id: "stellarator_coil_gsco_lite"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_coil_gsco_lite"

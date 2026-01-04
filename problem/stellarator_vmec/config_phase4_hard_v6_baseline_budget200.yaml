@@ -1,0 +1,86 @@
+exper_name: "Stellarator_VMEC_Phase4HardV6_Baseline_Budget200"
+description: "Phase4HardV6 baseline (no LLM-SemOp): stronger perturbations with high max_attempts to reduce feasible rate while avoiding premature stop."
+resume: false
+
+model:
+  provider: gemini
+  name: gemini-2.5-pro
+  api_key: ""
+
+goals: [volume, aspect_ratio, magnetic_shear]
+optimization_direction: [max, min, max]
+
+evalutor_path: problem.stellarator_vmec.evaluator
+
+vmec:
+  template_project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_nsga2"
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_nsga2"
+  input_file: "input.w7x"
+  output_file: "wout_w7x_fusionopt_phase4hardv6_budget200.nc"
+  save_wout_mode: 'none'
+  save_wout_top_k: 10
+
+optimization:
+  pop_size: 10
+  eval_budget: 200
+  log_freq: 10
+
+objective_ranges:
+  volume: [10.0, 45.0]
+  aspect_ratio: [8.0, 15.0]
+  magnetic_shear: [0.85, 1.05]
+
+llm_constraints:
+  max_coeff_changes: 80
+  low_order_max_rel_change: 0.6
+  high_order_max_rel_change: 2.0
+
+protocol:
+  problem_id: "stellarator_vmec"
+  algo_id: "fusionopt_v1"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_vmec"
+
+fusionopt:
+  use_heu_repair: false
+  heu_repair:
+    prob: 0.0
+    vmec:
+      enable_high_order_shrink: false
+      high_order_shrink: 0.8
+      high_order_m_threshold: 6
+      high_order_n_threshold: 3
+      max_total_rel_change: 2.0
+      global_step_strategy: "scale"
+      global_step_metric: "sum"
+  offspring_per_gen: 10
+  batch_eval_size: 10
+  max_attempts_per_child: 400
+  operator_weights:
+    std_crossover: 0.05
+    std_mutation: 0.15
+    std_resample: 0.80
+    llm_semop: 0.0
+  std_resample:
+    vmec:
+      max_changes_cap: 80
+      high_order_only: false
+  std_mutation:
+    vmec:
+      max_rel_change: 1.2
+      high_order_only: false
+  llm_semop:
+    enabled: false
+    trigger:
+      type: fixed_interval
+      every_n_generations: 2
+    batch_size: 8
+    temperature: 0.0
+    schema_version: v1
+  gate:
+    dedup_scope: "run"
+    canonicalize_json: true

@@ -1,0 +1,58 @@
+exper_name: "Stellarator_VMEC_Phase3_Ref_Fixed_Smoke"
+description: "Phase 3 smoke run for VMEC++ K-RVEA with fixed reference vectors (no Macro-loop adaptation)."
+save_dir: "./moo_results/"
+save_suffix: "stellarator_vmec_phase3_ref_fixed"
+
+resume: False
+
+model:
+  name: zgca,gemini-2.5-flash-nothinking
+  base_url: http://35.220.164.252:3888/v1/chat/completions
+  api_key: ""
+  prompt_module: Prompt
+  experience_prob: 0.0
+  crossover_prob: 0.7
+  mutation_prob: 0.3
+  explore_prob: 0
+use_au: False
+
+goals: [volume, aspect_ratio, magnetic_shear]
+optimization_direction: [max, min, max]
+
+prompt_info_path: ./problem/stellarator_vmec/vmec.yaml
+evalutor_path: problem.stellarator_vmec.evaluator
+
+vmec:
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_phase0"
+  input_file: "input.w7x"
+  output_file: "wout_w7x_phase0.nc"
+  save_wout_mode: 'none'
+  save_wout_top_k: 10
+
+optimization:
+  pop_size: 20
+  eval_budget: 2000
+  log_freq: 20
+
+objective_ranges:
+  volume: [10.0, 45.0]
+  aspect_ratio: [8.0, 15.0]
+  magnetic_shear: [0.1, 0.8]
+
+llm_constraints:
+  max_coeff_changes: 12
+  low_order_max_rel_change: 0.03
+  high_order_max_rel_change: 0.08
+
+reference_agent:
+  enabled: false
+
+protocol:
+  problem_id: "stellarator_vmec"
+  algo_id: "k_rvea_ref_fixed"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_vmec"

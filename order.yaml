@@ -1,0 +1,86 @@
+cd /home/dataset-assist-0/MOLLM-main
+
+conda activate ./MOLLM_env
+
+# -----------------------------------------------------------------------------
+# LLM configuration (NO hardcoded secrets)
+#
+# The code reads credentials from environment variables (see model/LLM.py):
+# - LLM_BASE_URL: proxy endpoint for chat completions
+# - LLM_API_KEY:  bearer token
+#
+# Option A (recommended): export env vars in your shell before running
+#   export LLM_BASE_URL='http://35.220.164.252:3888/v1/chat/completions'
+#   export LLM_API_KEY='YOUR_KEY'
+#
+# Option B: use a dotenv file and point LLM_ENV_FILE to it
+#   echo "LLM_BASE_URL=http://35.220.164.252:3888/v1/chat/completions" > .env
+#   echo "LLM_API_KEY=YOUR_KEY" >> .env
+#   export LLM_ENV_FILE="$PWD/.env"
+#
+# Note: some tools (e.g., open_evolve) may still look at OPENAI_API_KEY.
+# You can set it too if needed:
+#   export OPENAI_API_KEY="$LLM_API_KEY"
+# -----------------------------------------------------------------------------
+
+./check_cpu.sh
+
+python /home/dataset-assist-0/MOLLM-main/baseline_nsga2.py problem/stellarator_vmec/config.yaml
+
+
+
+python /home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/plot_vmec_checkpoint.py \
+  --pkl "/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/mols/volume_aspect_ratio_magnetic_shear_stellarator_vmec_3_obj_42.pkl" \
+  --baseline "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/input.w7x" \
+  --outdir "/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/plots" \
+  --topk 3 \
+
+
+
+
+
+scp -P 30250 batchcom@wenhao-server:"/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/mols/volume_aspect_ratio_magnetic_shear_stellarator_vmec_3_obj_42_pareto_3d.png" C:\Users\admin\Downloads\
+scp -r -P 30250 batchcom@wenhao-server:"/home/dataset-assist-0/MOLLM-main/moo_results/zgca,gemini-2.5-flash-nothinking/plots" C:\Users\admin\Downloads\
+
+
+
+python baseline_ga.py problem/stellarator_vmec/config_ga.yaml
+python baseline_nsga2.py problem/stellarator_vmec/config_nsga2.yaml
+python baseline_sms.py problem/stellarator_vmec/config_sms.yaml
+python baseline_moead.py problem/stellarator_vmec/config_moead.yaml
+
+python run_all_baselines.py --baselines nsga2 --seeds 120 121 122
+python run_all_baselines.py --baselines ga --seeds 120 121 122
+python run_all_baselines.py --baselines nsga2 --seeds 200 201
+
+
+python main.py stellarator_vmec/config.yaml --seed 120
+
+python run_all_baselines.py --problem vmec --baselines ga nsga2 --seeds 42 43 44
+python run_all_baselines.py --problem coil --baselines ga nsga2 sms moead --seeds 70
+python run_all_baselines.py --problem coil --baselines ga --seeds 70
+
+# Optional (only required by some external tools):
+# export OPENAI_API_KEY="$LLM_API_KEY"
+
+export OPEN_EVOLVE_CMD='openevolve-run open_evolve/tasks/gsco_lite/initial_program.py open_evolve/tasks/gsco_lite/evaluator.py --config open_evolve/tasks/gsco_lite/openevolve_config.yaml --iterations 450 --api-base http://35.220.164.252:3888/v1 --primary-model "gemini-2.5-flash-nothinking" --output $MOLLM_RUN_DIR'
+
+python open_evolve/run_open_evolve.py --config problem/stellarator_coil_gsco_lite/config.yaml --seed 42 --cmd-from-env OPEN_EVOLVE_CMD
+
+# Optional (only required by some external tools):
+# export OPENAI_API_KEY="$LLM_API_KEY"
+export OPEN_EVOLVE_CMD='openevolve-run open_evolve/tasks/vmec/initial_program.py open_evolve/tasks/vmec/evaluator.py --config open_evolve/tasks/vmec/openevolve_config.yaml --iterations 450 --api-base http://35.220.164.252:3888/v1 --primary-model "gemini-2.5-flash-nothinking" --secondary-model "gpt-4o" --output $MOLLM_RUN_DIR'
+
+export OPEN_EVOLVE_CMD='openevolve-run open_evolve/tasks/vmec/initial_program.py open_evolve/tasks/vmec/evaluator.py --config open_evolve/tasks/vmec/openevolve_config.yaml --iterations 450 --api-base http://35.220.164.252:3888/v1 --primary-model "gemini-2.5-flash-nothinking" --output $MOLLM_RUN_DIR'
+
+python open_evolve/run_open_evolve.py --config problem/stellarator_vmec/config.yaml --seed 42 --cmd-from-env OPEN_EVOLVE_CMD
+
+conda activate /home/dataset-assist-0/MOLLM-main/MOLLM_env
+
+# Optional (only required by some external tools):
+# export OPENAI_API_KEY="$LLM_API_KEY"
+export OMP_NUM_THREADS=64
+export MKL_NUM_THREADS=64
+export OPENBLAS_NUM_THREADS=64
+export NUMEXPR_NUM_THREADS=64
+export OPEN_EVOLVE_BATCH_N=12

@@ -1,0 +1,123 @@
+{
+  "timestamp": "2025-12-28T06:35:55.940107Z",
+  "inputs": [
+    "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed42.json",
+    "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed43.json",
+    "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed44.json"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "x": [
+    10.0,
+    20.0,
+    30.0,
+    40.0
+  ],
+  "labels": {
+    "A": "heu_on",
+    "B": "heu_off"
+  },
+  "A": {
+    "feasible_rate_mean": [
+      1.0,
+      0.9666666666666667,
+      0.9777777777777779,
+      0.9583333333333334
+    ],
+    "feasible_rate_std": [
+      0.0,
+      0.023570226039551608,
+      0.01571348402636772,
+      0.023570226039551553
+    ],
+    "hv_mean": [
+      0.2609851780232482,
+      0.27398237526639396,
+      0.2745283203669582,
+      0.28217352189532635
+    ],
+    "hv_std": [
+      0.10274691529620011,
+      0.09878480993846607,
+      0.09911872345336904,
+      0.1007031962826073
+    ],
+    "final_feasible_rate_mean": 0.9583333333333334,
+    "final_feasible_rate_std": 0.023570226039551553,
+    "final_hv_mean": 0.28217352189532635,
+    "final_hv_std": 0.1007031962826073,
+    "per_seed": {
+      "42": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed42.json",
+        "seed": 42,
+        "final_feasible_rate": 0.975,
+        "final_hv": 0.2189840201146665
+      },
+      "43": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed43.json",
+        "seed": 43,
+        "final_feasible_rate": 0.975,
+        "final_hv": 0.20323766272295027
+      },
+      "44": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed44.json",
+        "seed": 44,
+        "final_feasible_rate": 0.925,
+        "final_hv": 0.4242988828483624
+      }
+    }
+  },
+  "B": {
+    "feasible_rate_mean": [
+      0.9666666666666667,
+      0.9,
+      0.9333333333333335,
+      0.9333333333333332
+    ],
+    "feasible_rate_std": [
+      0.04714045207910316,
+      0.10801234497346433,
+      0.07200822998230953,
+      0.04249182927993986
+    ],
+    "hv_mean": [
+      0.1928190365664659,
+      0.28036571226030904,
+      0.29433068799080847,
+      0.297867600279389
+    ],
+    "hv_std": [
+      0.008577908422358449,
+      0.08413693927442704,
+      0.09612777187619932,
+      0.09774690436048554
+    ],
+    "final_feasible_rate_mean": 0.9333333333333332,
+    "final_feasible_rate_std": 0.04249182927993986,
+    "final_hv_mean": 0.297867600279389,
+    "final_hv_std": 0.09774690436048554,
+    "per_seed": {
+      "42": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed42.json",
+        "seed": 42,
+        "final_feasible_rate": 0.95,
+        "final_hv": 0.24730526162724392
+      },
+      "43": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed43.json",
+        "seed": 43,
+        "final_feasible_rate": 0.975,
+        "final_hv": 0.21172941132061854
+      },
+      "44": {
+        "input": "analysis_outputs/figure/phase3_stress_vmec_v11_heu_on_vs_off_seed44.json",
+        "seed": 44,
+        "final_feasible_rate": 0.875,
+        "final_hv": 0.4345681278903045
+      }
+    }
+  }
+}

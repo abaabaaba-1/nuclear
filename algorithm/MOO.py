@@ -137,6 +137,12 @@ class MOO:
         """
         if mol_buffer is None:
             mol_buffer = self.mol_buffer
+
+        # 如果当前还没有任何有效个体，直接跳过本次日志记录，避免对空列表求均值
+        if len(mol_buffer) == 0:
+            print(f"{buffer_type}: 0/{self.budget} generated: {self.generated_num} | mol_buffer: 0 (skip logging, no evaluated items yet)")
+            return
+
         auc1 = top_auc(mol_buffer, 1, finish=finish, freq_log=100, max_oracle_calls=self.budget)
         auc10 = top_auc(mol_buffer, 10, finish=finish, freq_log=100, max_oracle_calls=self.budget)
         auc100 = top_auc(mol_buffer, 100, finish=finish, freq_log=100, max_oracle_calls=self.budget)
@@ -144,6 +150,11 @@ class MOO:
         top100 = sorted(mol_buffer, key=lambda item: item[0].total, reverse=True)[:100]
         top100_mols = [i[0] for i in top100]
         top10 = top100_mols[:10]
+
+        # 理论上只要 mol_buffer 非空，top10 至少有 1 个元素；这里再加一道防护
+        if len(top10) == 0:
+            print(f"{buffer_type}: non-empty buffer but no top candidates found, skip logging this step")
+            return
 
         avg_top10 = np.mean([i.total for i in top10])
         avg_top100 = np.mean([i.total for i in top100_mols])
@@ -331,7 +342,7 @@ class MOO:
             offspring = self.generate_offspring(population, offspring_times)
             population = self.select_next_population(self.pop_size)
             self.log_results()
-            if self.config.get('model.experience_prob')>0 and len(self.mol_buffer)>100:
+            if self.config.get('model.experience_prob', default=0.0) > 0 and len(self.mol_buffer) > 100:
                 self.update_experience()
             if len(self.mol_buffer) >= self.budget or self.early_stopping:
                 self.log_results(finish=True)
@@ -442,9 +453,13 @@ class MOO:
         - list: Evaluated and recorded offspring.
         """
         parents = [random.sample(population, 2) for i in range(offspring_times)]
-        parallel = True
+        # 是否使用多进程生成 offspring，通过配置控制
+        parallel = self.config.get('optimization.parallel_offspring', True)
         if parallel:
-            with concurrent.futures.ProcessPoolExecutor() as executor:
+            # 从配置读取并行worker数量，默认使用所有CPU核心
+            import multiprocessing as mp
+            max_workers = self.config.get('optimization.parallel_workers', mp.cpu_count())
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = [executor.submit(self.mating, parent_list=parent_list) for parent_list in parents]
                 #results = [future.result() for future in futures]
                 #children, prompts, responses = zip(*results) #[[item,item],[item,item]] # ['who are you value 1', 'who are you value 2'] # ['yes, 'no']
@@ -550,7 +565,8 @@ class MOO:
     def select_next_population(self,pop_size):
         whole_population = [i[0] for i in self.mol_buffer]
         if len(self.property_list)>1:
-            return nsga2_so_selection(whole_population, pop_size)
+            # Fixed: Use proper NSGA-II selection instead of hybrid nsga2_so_selection
+            return nsga2_selection(whole_population, pop_size)
         else:
             return so_selection(whole_population,pop_size)
 

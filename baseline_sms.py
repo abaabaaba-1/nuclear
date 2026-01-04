@@ -78,7 +78,7 @@ class SMSEMOABaselineRunner(MOLLM):
 def main():
     parser = argparse.ArgumentParser(description='Run SMSEMOA Baseline (config-driven).')
     parser.add_argument('config', type=str, nargs='?', default='sacs_geo_jk/config.yaml', help='Path to the configuration file')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--seed', type=int, default=41, help='Random seed for reproducibility')
     parser.add_argument('--resume', action='store_true', help='Resume training from the last checkpoint')
     args = parser.parse_args()
     cfg_path = args.config

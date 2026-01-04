@@ -1,0 +1,90 @@
+exper_name: "Stellarator_GSCO_Phase4_Baseline_Budget200"
+description: "FusionOpt v1 Phase4 baseline (no LLM-SemOp) for GSCO-Lite. Budget=200."
+resume: false
+
+model:
+  provider: gemini
+  name: gemini-2.5-pro
+  api_key: ""
+
+goals: [f_B, f_S, I_max]
+optimization_direction: [min, min, min]
+
+evalutor_path: problem.stellarator_coil_gsco_lite.evaluator
+
+plasma_boundary:
+  wout_file: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations/wout_w7x.nc"
+  plas_n: 16
+
+coil_design:
+  wf_nPhi: 12
+  wf_nTheta: 12
+  unit_current: 0.2
+  winding_surface_expansion: 1.2
+  use_background_field: true
+  eval_workers: 1
+  forbidden_cells:
+    - [0, 0]
+    - [0, 1]
+    - [0, 2]
+    - [0, 3]
+    - [0, 4]
+    - [0, 5]
+    - [0, 6]
+    - [0, 7]
+    - [0, 8]
+    - [0, 9]
+    - [0, 10]
+    - [0, 11]
+
+optimization:
+  pop_size: 10
+  eval_budget: 200
+  log_freq: 10
+
+objective_ranges:
+  f_B: [12.3, 16.0]
+  f_S: [0, 60]
+  I_max: [0.2, 0.4]
+
+llm_constraints:
+  max_cell_changes: 10
+  min_active_cells: 10
+  max_active_cells: 60
+
+protocol:
+  problem_id: "stellarator_coil_gsco_lite"
+  algo_id: "fusionopt_v1"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_coil_gsco_lite"
+
+fusionopt:
+  use_heu_repair: true
+  offspring_per_gen: 10
+  batch_eval_size: 10
+  max_attempts_per_child: 50
+  operator_weights:
+    std_crossover: 0.7
+    std_mutation: 0.3
+    std_resample: 0.0
+    llm_semop: 0.0
+  llm_semop:
+    enabled: false
+    trigger:
+      type: fixed_interval
+      every_n_generations: 1
+    batch_size: 4
+    temperature: 0.0
+    schema_version: v1
+  gate:
+    dedup_scope: "run"
+    canonicalize_json: true
+  heu_repair:
+    gsco:
+      min_manhattan_dist: 0
+      drop_isolated: true
+      smooth_polarity: true

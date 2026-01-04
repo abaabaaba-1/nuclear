@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-12-27T16:39:31.953112Z",
+  "n_obj": 3,
+  "goals": [
+    "f_B",
+    "f_S",
+    "I_max"
+  ],
+  "obj_cols": [
+    "f1_min",
+    "f2_min",
+    "f3_min"
+  ],
+  "max_eval": 60,
+  "A": {
+    "run_dir": "/home/dataset-assist-0/MOLLM-main/results/stellarator_coil_gsco_lite/fusionopt_v1_heu_on/Phase3_HeuRepairAblation_GSCO_On_seed42",
+    "n_rows": 60,
+    "n_feasible": 60,
+    "feasible_rate": 1.0,
+    "status_counts": {
+      "ok": 60
+    },
+    "cv_stats": {
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "raw_stats": {
+      "f_B_raw": {
+        "mean": 14.696055108278953,
+        "p10": 14.611609132026324,
+        "p50": 14.700474676750016,
+        "p90": 14.760183583075452,
+        "min": 14.530244665955172,
+        "max": 15.088031331345206,
+        "frac_eq_0": 0.0
+      },
+      "f_S_raw": {
+        "mean": 4.116666666666666,
+        "p10": 3.0,
+        "p50": 3.0,
+        "p90": 7.0,
+        "min": 3.0,
+        "max": 10.0,
+        "frac_eq_0": 0.0
+      },
+      "I_max_raw": {
+        "mean": 0.2966666666666666,
+        "p10": 0.2,
+        "p50": 0.2,
+        "p90": 0.4,
+        "min": 0.2,
+        "max": 0.4,
+        "frac_eq_0": 0.0
+      }
+    },
+    "feasible_min_score_boundary_hits": {
+      "f1_min": {
+        "n": 60,
+        "frac_at_0": 0.0,
+        "frac_at_1": 0.0
+      },
+      "f2_min": {
+        "n": 60,
+        "frac_at_0": 0.0,
+        "frac_at_1": 0.0
+      },
+      "f3_min": {
+        "n": 60,
+        "frac_at_0": 0.5166666666666667,
+        "frac_at_1": 0.48333333333333334
+      }
+    }
+  },
+  "B": {
+    "run_dir": "/home/dataset-assist-0/MOLLM-main/results/stellarator_coil_gsco_lite/fusionopt_v1_heu_off/Phase3_HeuRepairAblation_GSCO_Off_seed42",
+    "n_rows": 60,
+    "n_feasible": 60,
+    "feasible_rate": 1.0,
+    "status_counts": {
+      "ok": 60
+    },
+    "cv_stats": {
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "raw_stats": {
+      "f_B_raw": {
+        "mean": 14.682841826668664,
+        "p10": 14.523066399342822,
+        "p50": 14.632369138102472,
+        "p90": 14.931880373923601,
+        "min": 14.347560507013892,
+        "max": 15.142904327191443,
+        "frac_eq_0": 0.0
+      },
+      "f_S_raw": {
+        "mean": 11.216666666666667,
+        "p10": 6.0,
+        "p50": 9.0,
+        "p90": 18.0,
+        "min": 5.0,
+        "max": 19.0,
+        "frac_eq_0": 0.0
+      },
+      "I_max_raw": {
+        "mean": 0.32666666666666655,
+        "p10": 0.2,
+        "p50": 0.4,
+        "p90": 0.4,
+        "min": 0.2,
+        "max": 0.4,
+        "frac_eq_0": 0.0
+      }
+    },
+    "feasible_min_score_boundary_hits": {
+      "f1_min": {
+        "n": 60,
+        "frac_at_0": 0.0,
+        "frac_at_1": 0.0
+      },
+      "f2_min": {
+        "n": 60,
+        "frac_at_0": 0.0,
+        "frac_at_1": 0.0
+      },
+      "f3_min": {
+        "n": 60,
+        "frac_at_0": 0.36666666666666664,
+        "frac_at_1": 0.6333333333333333
+      }
+    }
+  }
+}

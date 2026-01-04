@@ -1,0 +1,312 @@
+#!/usr/bin/env python3
+
+"""VMEC Benchmark Health Check Script
+
+Usage:
+    python problem/stellarator_vmec/health_check_vmec.py [n_samples] [seed]
+
+This script performs a quick "health check" of the VMEC benchmark by:
+
+1. Loading the existing VMEC config (problem/stellarator_vmec/config.yaml)
+2. Using the same generate_initial_population + RewardingSystem as the real runs
+3. Evaluating a batch of random candidates via VMEC++
+4. Reporting:
+   - Convergence rate (fsqr/fsqz/fsql <= ftolv)
+   - Mercier stability rate (min_mercier >= 0)
+   - Feasible rate (both converged & stable)
+   - Raw distributions of volume / aspect_ratio / magnetic_shear
+   - Normalized distributions (via RewardingSystem._transform_objectives)
+   - Clipping rates at 0 and 1 for each objective
+
+This does not modify the benchmark behavior, it is a diagnostic tool only.
+"""
+
+import sys
+import os
+import logging
+from pathlib import Path
+from typing import Tuple
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from model.MOLLM import ConfigLoader
+from algorithm.base import Item
+from problem.stellarator_vmec.evaluator import RewardingSystem, generate_initial_population
+
+
+def _setup_logger() -> logging.Logger:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    return logging.getLogger("VMECHealthCheck")
+
+
+def _collect_raw_constraints_and_objectives(items) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Collect raw (pre-penalty) objective values and constraint flags from evaluated Items."""
+    volumes = []
+    aspects = []
+    shears = []
+    is_converged = []
+    is_stable = []
+    is_feasible = []
+
+    for it in items:
+        prop = getattr(it, "property", None)
+        cons = getattr(it, "constraints", None)
+        if prop is None or cons is None:
+            continue
+
+        # original_results in RewardingSystem are raw physics metrics before penalties
+        volumes.append(prop.get("volume", 0.0))
+        aspects.append(prop.get("aspect_ratio", 0.0))
+        shears.append(prop.get("magnetic_shear", 0.0))
+
+        is_converged.append(1.0 if cons.get("is_converged", False) else 0.0)
+        is_stable.append(1.0 if cons.get("is_stable", False) else 0.0)
+        is_feasible.append(1.0 if cons.get("is_feasible", 0.0) else 0.0)
+
+    return (
+        np.array(volumes, dtype=float),
+        np.array(aspects, dtype=float),
+        np.array(shears, dtype=float),
+        np.array(is_converged, dtype=float),
+        np.array(is_stable, dtype=float),
+        np.array(is_feasible, dtype=float),
+    )
+
+
+def _print_stats(logger: logging.Logger, name: str, raw: np.ndarray, norm: np.ndarray) -> None:
+    if raw.size == 0:
+        logger.warning(f"No data for objective {name}.")
+        return
+
+    logger.info("-" * 70)
+    logger.info(f"Objective: {name}")
+    logger.info(
+        f"  Raw   min / max / mean: {raw.min():.4e}  /  {raw.max():.4e}  /  {raw.mean():.4e}"
+    )
+
+    if norm.size > 0:
+        logger.info(
+            f"  Norm  min / max / mean: {norm.min():.4f}  /  {norm.max():.4f}  /  {norm.mean():.4f}"
+        )
+        eps = 1e-8
+        frac_low = float((norm <= eps).mean())
+        frac_high = float((norm >= 1.0 - eps).mean())
+        logger.info(f"  Clip rate @0: {frac_low * 100:.2f}%  (values at lower bound)")
+        logger.info(f"  Clip rate @1: {frac_high * 100:.2f}%  (values at upper bound)")
+    else:
+        logger.warning("  No normalized values computed.")
+
+
+def run_health_check(n_samples: int = 100, seed: int = 42) -> None:
+    logger = _setup_logger()
+
+    config_rel_path = "stellarator_vmec/config.yaml"
+    yaml_path = project_root / "problem" / config_rel_path
+
+    if not yaml_path.is_file():
+        logger.error(f"Config file not found: {yaml_path}")
+        return
+
+    logger.info("=" * 70)
+    logger.info("VMEC Benchmark Health Check")
+    logger.info("=" * 70)
+    logger.info(f"Config path: {yaml_path}")
+    logger.info(f"Requested samples: {n_samples}")
+    logger.info(f"Random seed: {seed}")
+
+    # Load config via ConfigLoader so behavior matches main runs
+    config = ConfigLoader(config_rel_path)
+
+    # Instantiate RewardingSystem (same as main benchmark)
+    evaluator = RewardingSystem(config)
+
+    # Property list for this benchmark
+    goals = config.get("goals", ["volume", "aspect_ratio", "magnetic_shear"])
+    logger.info(f"Goals: {goals}")
+
+    # Generate initial population using the same helper as the main optimization
+    logger.info("Generating initial population using generate_initial_population...")
+    pop = generate_initial_population(config, seed=seed)
+    if not pop:
+        logger.error("No candidates generated by generate_initial_population.")
+        return
+
+    if len(pop) > n_samples:
+        pop = pop[:n_samples]
+    logger.info(f"Using {len(pop)} candidates for health check.")
+
+    items = [Item(value=cfg, property_list=goals) for cfg in pop]
+
+    logger.info("Evaluating candidates via RewardingSystem (this may take some time)...")
+    evaluated_items, log_dict = evaluator.evaluate(items)
+
+    if not evaluated_items:
+        logger.error("No valid items after evaluation.")
+        return
+
+    invalid_num = log_dict.get("invalid_num", 0)
+    repeated_num = log_dict.get("repeated_num", 0)
+
+    logger.info("Evaluation summary:")
+    logger.info(f"  Valid items:   {len(evaluated_items)}")
+    logger.info(f"  Invalid items: {invalid_num}")
+    logger.info(f"  Repeated items:{repeated_num}")
+
+    # Collect raw objective and constraint information
+    (
+        vol_raw,
+        ar_raw,
+        shear_raw,
+        conv_flags,
+        stab_flags,
+        feas_flags,
+    ) = _collect_raw_constraints_and_objectives(evaluated_items)
+
+    # High-level constraint statistics
+    if conv_flags.size > 0:
+        logger.info("-" * 70)
+        logger.info(
+            f"Convergence rate: {conv_flags.mean() * 100:.2f}%  ({conv_flags.sum():.0f}/{conv_flags.size})"
+        )
+    if stab_flags.size > 0:
+        logger.info(
+            f"Mercier-stable rate: {stab_flags.mean() * 100:.2f}%  ({stab_flags.sum():.0f}/{stab_flags.size})"
+        )
+    if feas_flags.size > 0:
+        logger.info(
+            f"Feasible rate (converged & stable): {feas_flags.mean() * 100:.2f}%  ({feas_flags.sum():.0f}/{feas_flags.size})"
+        )
+
+    # Use RewardingSystem's own penalty + transformation for normalization,
+    # so that we exactly match the main evaluation pipeline.
+    def transform_with_penalty(obj_name: str) -> np.ndarray:
+        norm_vals = []
+        for it in evaluated_items:
+            prop = getattr(it, "property", None)
+            cons = getattr(it, "constraints", None)
+            if prop is None or cons is None:
+                continue
+
+            raw_results = {
+                "volume": float(prop.get("volume", 0.0)),
+                "aspect_ratio": float(prop.get("aspect_ratio", 0.0)),
+                "magnetic_shear": float(prop.get("magnetic_shear", 0.0)),
+            }
+            feasible_flag = bool(cons.get("is_feasible", 0.0))
+            penalized = evaluator._apply_penalty(raw_results, feasible_flag)
+            tdict = evaluator._transform_objectives(penalized)
+            norm_vals.append(float(tdict[obj_name]))
+
+        return np.array(norm_vals, dtype=float)
+
+    vol_norm = transform_with_penalty("volume") if vol_raw.size > 0 else np.array([])
+    ar_norm = transform_with_penalty("aspect_ratio") if ar_raw.size > 0 else np.array([])
+    shear_norm = transform_with_penalty("magnetic_shear") if shear_raw.size > 0 else np.array([])
+
+    logger.info("\nRaw and normalized statistics (including clipping rates):")
+    _print_stats(logger, "volume", vol_raw, vol_norm)
+    _print_stats(logger, "aspect_ratio", ar_raw, ar_norm)
+    _print_stats(logger, "magnetic_shear", shear_raw, shear_norm)
+
+    feasible_mask = feas_flags > 0.5 if feas_flags.size > 0 else np.zeros_like(vol_raw, dtype=bool)
+
+    vol_feas = vol_raw[feasible_mask] if vol_raw.size > 0 else np.array([])
+    ar_feas = ar_raw[feasible_mask] if ar_raw.size > 0 else np.array([])
+    shear_feas = shear_raw[feasible_mask] if shear_raw.size > 0 else np.array([])
+
+    vol_norm_feas = vol_norm[feasible_mask] if vol_norm.size > 0 and feasible_mask.size == vol_norm.size else np.array([])
+    ar_norm_feas = ar_norm[feasible_mask] if ar_norm.size > 0 and feasible_mask.size == ar_norm.size else np.array([])
+    shear_norm_feas = shear_norm[feasible_mask] if shear_norm.size > 0 and feasible_mask.size == shear_norm.size else np.array([])
+
+    plots_dir = project_root / "problem" / "stellarator_vmec" / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    if vol_feas.size > 0:
+        plt.figure()
+        plt.hist(vol_feas, bins=20, edgecolor="black")
+        plt.xlabel("volume [m^3]")
+        plt.ylabel("count")
+        plt.title("VMEC volume (feasible raw)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_volume_raw_hist.png")
+        plt.close()
+
+    if vol_norm_feas.size > 0:
+        plt.figure()
+        plt.hist(vol_norm_feas, bins=20, range=(0.0, 1.0), edgecolor="black")
+        plt.xlabel("volume (normalized)")
+        plt.ylabel("count")
+        plt.title("VMEC volume (feasible normalized)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_volume_norm_hist.png")
+        plt.close()
+
+    if ar_feas.size > 0:
+        plt.figure()
+        plt.hist(ar_feas, bins=20, edgecolor="black")
+        plt.xlabel("aspect_ratio")
+        plt.ylabel("count")
+        plt.title("VMEC aspect_ratio (feasible raw)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_aspect_ratio_raw_hist.png")
+        plt.close()
+
+    if ar_norm_feas.size > 0:
+        plt.figure()
+        plt.hist(ar_norm_feas, bins=20, range=(0.0, 1.0), edgecolor="black")
+        plt.xlabel("aspect_ratio (normalized)")
+        plt.ylabel("count")
+        plt.title("VMEC aspect_ratio (feasible normalized)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_aspect_ratio_norm_hist.png")
+        plt.close()
+
+    if shear_feas.size > 0:
+        plt.figure()
+        plt.hist(shear_feas, bins=20, edgecolor="black")
+        plt.xlabel("magnetic_shear")
+        plt.ylabel("count")
+        plt.title("VMEC magnetic_shear (feasible raw)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_magnetic_shear_raw_hist.png")
+        plt.close()
+
+    if shear_norm_feas.size > 0:
+        plt.figure()
+        plt.hist(shear_norm_feas, bins=20, range=(0.0, 1.0), edgecolor="black")
+        plt.xlabel("magnetic_shear (normalized)")
+        plt.ylabel("count")
+        plt.title("VMEC magnetic_shear (feasible normalized)")
+        plt.tight_layout()
+        plt.savefig(plots_dir / "vmec_magnetic_shear_norm_hist.png")
+        plt.close()
+
+    logger.info("=" * 70)
+    logger.info("Health check finished.")
+    logger.info("If clip rates are very high (e.g., >50%), consider recalibrating objective_ranges.")
+
+
+if __name__ == "__main__":
+    default_samples = 100
+    default_seed = 42
+
+    if len(sys.argv) > 1:
+        try:
+            default_samples = int(sys.argv[1])
+        except Exception:
+            pass
+    if len(sys.argv) > 2:
+        try:
+            default_seed = int(sys.argv[2])
+        except Exception:
+            pass
+
+    run_health_check(n_samples=default_samples, seed=default_seed)

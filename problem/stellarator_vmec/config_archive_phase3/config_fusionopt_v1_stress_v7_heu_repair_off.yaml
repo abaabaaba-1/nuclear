@@ -1,0 +1,70 @@
+exper_name: "Stellarator_VMEC_FusionOpt_v1_StressV7_HeuOff"
+description: "Phase3 stress v7: fix magnetic_shear range; HeuRepair disabled (VMEC)."
+resume: false
+
+model:
+  api_key: ""
+
+goals: [volume, aspect_ratio, magnetic_shear]
+optimization_direction: [max, min, max]
+
+evalutor_path: problem.stellarator_vmec.evaluator
+
+vmec:
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_phase0"
+  input_file: "input.w7x"
+  output_file: "wout_w7x_fusionopt_stress_v7_heuoff.nc"
+  save_wout_mode: 'none'
+  save_wout_top_k: 10
+
+optimization:
+  pop_size: 10
+  eval_budget: 40
+  log_freq: 10
+
+objective_ranges:
+  volume: [10.0, 45.0]
+  aspect_ratio: [8.0, 15.0]
+  magnetic_shear: [0.6, 1.6]
+
+llm_constraints:
+  max_coeff_changes: 20
+  low_order_max_rel_change: 0.6
+  high_order_max_rel_change: 5.0
+
+protocol:
+  problem_id: "stellarator_vmec"
+  algo_id: "fusionopt_v1_stress_v7_heu_off"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/stellarator_vmec"
+
+fusionopt:
+  use_heu_repair: false
+  offspring_per_gen: 10
+  batch_eval_size: 10
+  max_attempts_per_child: 80
+  operator_weights:
+    std_crossover: 0.2
+    std_mutation: 0.4
+    std_resample: 0.4
+  std_resample:
+    vmec:
+      max_changes_cap: 20
+      high_order_only: true
+  std_mutation:
+    vmec:
+      max_rel_change: 5.0
+      high_order_only: true
+  gate:
+    dedup_scope: "run"
+    canonicalize_json: true
+  heu_repair:
+    vmec:
+      high_order_shrink: 0.6
+      max_total_rel_change: 5.0
+      high_order_m_threshold: 6
+      high_order_n_threshold: 3

@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import json
 import numpy as np
+from collections import defaultdict, deque
 
 try:
     import matplotlib.pyplot as plt
@@ -28,6 +29,11 @@ except ImportError:
             self.property = {}
             self.total = 0.0
     class HistoryBuffer: pass
+
+try:
+    from model.MOLLM import ConfigLoader
+except ImportError:
+    ConfigLoader = None
 
 def analyze_final_pops(final_pops_data):
     """
@@ -65,6 +71,158 @@ def analyze_final_pops(final_pops_data):
     print(f"  - Candidate Value (JSON): \n{worst_item.value}")
 
 
+def analyze_coil_all_mols(all_candidates):
+    if ConfigLoader is not None:
+        try:
+            cfg = ConfigLoader('stellarator_coil/config.yaml')
+            nPhi = cfg.get('coil_design.wf_nPhi', 48)
+            nTheta = cfg.get('coil_design.wf_nTheta', 50)
+        except Exception:
+            nPhi, nTheta = 48, 50
+    else:
+        nPhi, nTheta = 48, 50
+
+    def _compute_connectivity(active_segments):
+        if not active_segments:
+            return None
+        edges = []
+        for seg_idx in active_segments:
+            try:
+                seg_idx = int(seg_idx)
+            except Exception:
+                continue
+            if seg_idx < 0 or seg_idx >= nPhi * nTheta * 2:
+                continue
+            if seg_idx < nPhi * nTheta:
+                phi = seg_idx // nTheta
+                theta = seg_idx % nTheta
+                phi2 = (phi + 1) % nPhi
+                node_a = (phi, theta)
+                node_b = (phi2, theta)
+            else:
+                offset = seg_idx - nPhi * nTheta
+                phi = offset // nTheta
+                theta = offset % nTheta
+                theta2 = (theta + 1) % nTheta
+                node_a = (phi, theta)
+                node_b = (phi, theta2)
+            edges.append((node_a, node_b))
+
+        if not edges:
+            return None
+
+        deg = defaultdict(int)
+        adj = defaultdict(list)
+        for a, b in edges:
+            deg[a] += 1
+            deg[b] += 1
+            adj[a].append(b)
+            adj[b].append(a)
+
+        visited = set()
+        comp_edges = []
+        comp_open_ends = []
+        for start in deg.keys():
+            if start in visited:
+                continue
+            stack = [start]
+            visited.add(start)
+            nodes = []
+            while stack:
+                u = stack.pop()
+                nodes.append(u)
+                for v in adj[u]:
+                    if v not in visited:
+                        visited.add(v)
+                        stack.append(v)
+            edges_in_comp = int(sum(deg[u] for u in nodes) / 2)
+            open_ends = sum(1 for u in nodes if deg[u] == 1)
+            comp_edges.append(edges_in_comp)
+            comp_open_ends.append(open_ends)
+
+        total_edges = len(edges)
+        n_components = len(comp_edges)
+        largest_comp_edges = max(comp_edges) if comp_edges else 0
+        total_open_ends = sum(comp_open_ends)
+        has_open_ends = total_open_ends > 0
+        frac_largest = largest_comp_edges / total_edges if total_edges > 0 else 0.0
+        return {
+            'edges_total': total_edges,
+            'n_components': n_components,
+            'largest_comp_edges': largest_comp_edges,
+            'fraction_in_largest': frac_largest,
+            'open_ends': total_open_ends,
+            'has_open_ends': has_open_ends,
+        }
+
+    all_rows = []
+    conn_rows = []
+    for candidate_entry in all_candidates:
+        item = candidate_entry[0] if isinstance(candidate_entry, (list, tuple)) and candidate_entry else candidate_entry
+        if not hasattr(item, 'property') or not hasattr(item, 'total') or not hasattr(item, 'value'):
+            continue
+        prop = item.property or {}
+        if not {'f_B', 'f_S', 'I_max'}.issubset(set(prop.keys())):
+            continue
+        all_rows.append({
+            'f_B': prop.get('f_B'),
+            'f_S': prop.get('f_S'),
+            'I_max': prop.get('I_max'),
+            'total_score': item.total,
+        })
+
+        try:
+            cfg = json.loads(item.value)
+            active_segments = cfg.get('active_segments', [])
+            metrics = _compute_connectivity(active_segments)
+            if metrics is not None:
+                conn_rows.append(metrics)
+        except Exception:
+            continue
+
+    if not all_rows:
+        print("\n未能从 'all_mols' 中提取到任何仿星器线圈 (f_B, f_S, I_max) 数据。")
+        return
+
+    df = pd.DataFrame(all_rows)
+    print("\n--- Stellarator Coil 目标统计 (f_B, f_S, I_max, total_score) ---")
+    with pd.option_context('display.float_format', lambda x: f"{x:.3e}"):
+        print(df[['f_B', 'f_S', 'I_max', 'total_score']].agg(['mean', 'std', 'min', 'max']))
+
+    if conn_rows:
+        dfc = pd.DataFrame(conn_rows)
+        print("\n--- Stellarator Coil 连通性统计 (基于 active_segments 拓扑) ---")
+        print(dfc[['edges_total', 'n_components', 'fraction_in_largest', 'open_ends']].agg(['mean', 'min', 'max']))
+        closed_frac = 1.0 - dfc['has_open_ends'].mean()
+        print(f"  无开口链条的配置比例 (all_mols): {closed_frac:.3f}")
+
+        N = min(100, len(dfc) // 2)
+        if N > 0:
+            early = dfc.head(N)
+            late = dfc.tail(N)
+            early_closed = 1.0 - early['has_open_ends'].mean()
+            late_closed = 1.0 - late['has_open_ends'].mean()
+            print(f"  早期 {N} 个样本中无开口比例: {early_closed:.3f}")
+            print(f"  后期 {N} 个样本中无开口比例: {late_closed:.3f}")
+
+    if PLOT_AVAILABLE and not df.empty:
+        print("\n--- 正在生成 Stellarator Coil 目标分布图... ---")
+        plt.style.use('seaborn-v0_8-whitegrid')
+        df_plot = df.copy()
+        df_plot['log10_f_B'] = np.log10(df_plot['f_B'].clip(lower=1e-20))
+        g = sns.pairplot(
+            df_plot,
+            vars=['log10_f_B', 'f_S', 'I_max'],
+            diag_kind='hist',
+            plot_kws={'alpha': 0.6, 's': 30},
+            height=3
+        )
+        g.fig.suptitle('Stellarator Coil Objective Distribution', y=1.02, fontsize=16)
+        save_path = 'coil_checkpoint_analysis.png'
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"✅ Coil 可视化图表已保存至: {os.path.abspath(save_path)}")
+
+
 def analyze_checkpoint(filepath):
     """
     主分析函数，读取 pkl 文件并进行全面分析。
@@ -98,6 +256,15 @@ def analyze_checkpoint(filepath):
         return
         
     all_candidates = data['all_mols']
+
+    sample_entry = all_candidates[0] if all_candidates else None
+    sample_item = sample_entry[0] if isinstance(sample_entry, (list, tuple)) and sample_entry else sample_entry
+    if hasattr(sample_item, 'property') and isinstance(sample_item.property, dict):
+        keys = set(sample_item.property.keys())
+        if {'f_B', 'f_S', 'I_max'}.issubset(keys):
+            analyze_coil_all_mols(all_candidates)
+            return
+
     print(f"\n--- 分析所有历史评估数据 (all_mols, 共 {len(all_candidates)} 条记录) ---")
 
     extracted_data = []
@@ -176,8 +343,10 @@ def analyze_checkpoint(filepath):
         print(f"✅ 可视化图表已保存至: {os.path.abspath(save_path)}")
 
 if __name__ == '__main__':
-    # 定义你想要读取的固定文件路径
-    target_file_path = os.path.join('moo_results',  'check.pkl')
+    import argparse
+    parser = argparse.ArgumentParser(description='Analyze MOLLM checkpoint pickle file.')
+    parser.add_argument('--path', type=str, default=os.path.join('moo_results', 'check.pkl'), 
+                        help='Path to the .pkl checkpoint file')
+    args = parser.parse_args()
     
-    # 直接调用分析函数来处理这个指定的文件
-    analyze_checkpoint(target_file_path)
+    analyze_checkpoint(args.path)
