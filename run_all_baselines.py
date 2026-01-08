@@ -28,10 +28,10 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 # VMEC baselines (plasma equilibrium optimization)
 VMEC_BASELINES = {
-    "ga": ["python", "baseline_ga.py", "problem/stellarator_vmec/config_ga.yaml"],
-    "nsga2": ["python", "baseline_nsga2.py", "problem/stellarator_vmec/config_nsga2.yaml"],
-    "sms": ["python", "baseline_sms.py", "problem/stellarator_vmec/config_sms.yaml"],
-    "moead": ["python", "baseline_moead.py", "problem/stellarator_vmec/config_moead.yaml"],
+    "ga": ["python", "baseline_ga.py", "problem/stellarator_vmec/config_baseline_ga_budget1000.yaml"],
+    "nsga2": ["python", "baseline_nsga2_pymoo.py", "problem/stellarator_vmec/config_baseline_nsga2_budget1000.yaml"],
+    "sms": ["python", "baseline_sms.py", "problem/stellarator_vmec/config_archive_phase3/config_sms.yaml"],
+    "moead": ["python", "baseline_moead.py", "problem/stellarator_vmec/config_baseline_moead_budget1000.yaml"],
     "rvea": ["python", "baseline_rvea.py", "problem/stellarator_vmec/config.yaml"],
     "krvea": ["python", "baseline_krvea.py", "problem/stellarator_vmec/config.yaml"],
     # LLM-based MOLLM baseline for VMEC (uses the standard VMEC config)
@@ -134,6 +134,8 @@ def build_command(baselines_dict: dict, baseline_key: str, seed: int) -> list[st
     """Build command with seed argument."""
     base_cmd = baselines_dict[baseline_key]
     cmd = base_cmd.copy()
+    if cmd and cmd[0] in {"python", "python3"}:
+        cmd[0] = sys.executable
     cmd += ["--seed", str(seed)]
     return cmd
 

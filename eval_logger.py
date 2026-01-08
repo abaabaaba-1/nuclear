@@ -74,6 +74,10 @@ class EvalLogger:
         self.csv_file = open(self.csv_path, "w", newline="")
         self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
         self.writer.writeheader()
+        try:
+            self.csv_file.flush()
+        except Exception:
+            pass
 
         try:
             with open(os.path.join(self.run_dir, "config.yaml"), "w") as f:

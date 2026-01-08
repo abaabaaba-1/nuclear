@@ -1,7 +1,8 @@
-exper_name: "Stellarator_VMEC_Baseline_NSGA2_Budget1000"
-description: "VMEC baseline NSGA2 (protocol logging) with eval_budget=1000; aligned to Phase4HardV6 ranges/constraints."
+exper_name: "Stellarator_VMEC_Baseline_MOEAD_Budget1000"
+description: "VMEC baseline MOEA/D (protocol logging) with eval_budget=1000; patched reset+sanitize; isolated vmec.project_path per seed."
+
 save_dir: "./moo_results_vmec_baselines/"
-save_suffix: "vmec_baseline_nsga2_b1000"
+save_suffix: "vmec_baseline_moead_b1000_seed42"
 
 resume: False
 
@@ -19,20 +20,19 @@ use_au: False
 goals: [volume, aspect_ratio, magnetic_shear]
 optimization_direction: [max, min, max]
 
-prompt_info_path: ./problem/stellarator_vmec/vmec.yaml
 evalutor_path: problem.stellarator_vmec.evaluator
 
 vmec:
-  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_nsga2"
+  project_path: "/home/dataset-assist-0/MOLLM-main/problem/stellarator_vmec/vmecpp/calculations_moead_seed42"
   input_file: "input.w7x"
-  output_file: "wout_w7x_nsga2_b1000.nc"
+  output_file: "wout_w7x_moead_b1000_seed42.nc"
   save_wout_mode: 'none'
   save_wout_top_k: 10
 
 optimization:
   pop_size: 10
   eval_budget: 1000
-  log_freq: 20
+  log_freq: 10
 
 objective_ranges:
   volume: [10.0, 45.0]
@@ -44,9 +44,16 @@ llm_constraints:
   low_order_max_rel_change: 0.6
   high_order_max_rel_change: 2.0
 
+baseline_moead:
+  n_partitions: 12
+  n_neighbors: 15
+
+baseline:
+  mutation_factor_range: [0.85, 1.15]
+
 protocol:
   problem_id: "stellarator_vmec"
-  algo_id: "nsga2"
+  algo_id: "moead"
 
 logging:
   results_base_dir: "./results/stellarator_vmec"

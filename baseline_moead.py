@@ -19,6 +19,13 @@ from datetime import datetime
 from pathlib import Path
 
 from eval_logger import EvalLogger
+from fusionopt.protocol import ensure_protocol_fields
+
+try:
+    from problem.stellarator_vmec.vmec_reset_helper import maybe_reset_vmec_inputs
+except Exception:
+    def maybe_reset_vmec_inputs(*_args, **_kwargs):
+        return
 
 # =========================================================================================================
 # UTILS (Copied from your framework for consistency)
@@ -67,15 +74,14 @@ class Item:
         # 2. VMEC: 使用 is_feasible 布尔约束（通过 penalty 已反映在 scores 中）
         constraint_results = results.get('constraint_results', {}) or {}
         if 'max_uc' in constraint_results:
-            # SACS 格式：max_uc 是实际约束值
-            self.constraints = constraint_results.get('max_uc', 999.0)
+            # SACS 格式：显式约束值
+            self.constraints = {'max_uc': constraint_results.get('max_uc', 999.0)}
         elif 'is_feasible' in constraint_results:
-            # VMEC 格式：is_feasible 是布尔值，MOEA/D 不使用显式约束
-            # 因为 evaluator 已经在 scores 中加入了 penalty
-            self.constraints = 0.0 if bool(constraint_results.get('is_feasible', 0)) else 0.0
+            # VMEC 格式：保留 is_feasible 等字段，后续由 ensure_protocol_fields 补齐 status/cv/feasible
+            self.constraints = dict(constraint_results)
         else:
             # 未知格式，默认无约束
-            self.constraints = 0.0
+            self.constraints = {}
 
 # =========================================================================================================
 # Pymoo Problem Definition
@@ -109,6 +115,10 @@ class SACSProblem(Problem):
         out["F"] = np.array([it.scores for it in evaluated_items], dtype=float)
 
         if self.eval_logger is not None and evaluated_items:
+            try:
+                ensure_protocol_fields(self.eval_logger.problem_id, evaluated_items)
+            except Exception:
+                pass
             gen_val = -1
             try:
                 if self.pop_size and self.pop_size > 0:
@@ -132,11 +142,6 @@ def main():
 
     # Best-effort determinism for Phase 1 comparisons
     os.environ.setdefault("PYTHONHASHSEED", str(args.seed))
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
-    os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
-    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
 
     # --- 1. Load Configuration ---
     config_path = args.config
@@ -173,8 +178,10 @@ def main():
     save_suffix = config.get('save_suffix')
     save_dir_path = os.path.join(save_dir, model_name)
     os.makedirs(save_dir_path, exist_ok=True)
-    
+
     module_path = config.get('evalutor_path')
+    project_path = config.get('vmec.project_path')
+    maybe_reset_vmec_inputs(module_path, project_path, "pre")
     module = __import__(module_path, fromlist=['RewardingSystem', 'generate_initial_population'])
     RewardingSystem = module.RewardingSystem
     generate_initial_population = module.generate_initial_population
@@ -422,6 +429,11 @@ def main():
             eval_logger.close()
             from check_phase0_protocol import _repair_run
             _repair_run(Path(str(run_dir)))
+    except Exception:
+        pass
+
+    try:
+        maybe_reset_vmec_inputs(module_path, project_path, "post")
     except Exception:
         pass
 

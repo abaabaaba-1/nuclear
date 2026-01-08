@@ -438,11 +438,9 @@
 
 ### 当前进展（Progress）
 
-- VMEC（Phase4HardV6）在 `budget=1000`（seed=42）下，LLM-SemOp 出现明显增益（`HV/top1` 更高，且 `feasible_rate` 略高），说明“大预算更好”的趋势成立。
-- VMEC（Phase4HardV6）在 `budget=1000`（seed=46）下也复现增益（该 seed 首次运行因手动关闭 IDE 中断，以下为 rerun 结果）：
-  - Baseline：`feasible_rate=0.559`，`HV=1.1961`，`top1(total)=0.9089`
-  - LLM-SemOp：`feasible_rate=0.597`，`HV=1.2293`，`top1(total)=0.9424`
-  - 我们将不再继续其他 seed 的 `budget=1000` 计算。
+- VMEC（Phase4HardV6）在 `budget=1000` 的 multi-seed（seed=42/43/44/46）paired runs 已跑满，并完成汇总（见 Phase 5）。总体上：
+  - `feasible_rate` 在所有 seed 上稳定提升；
+  - `HV/top1(total)` 在 seed43 上出现明显反例（LLM 低于 baseline），导致跨 seed 方差很大；该现象与 Phase4 指标口径的 clipping/饱和敏感性一致（见 Phase 5 的解释）。
 - GSCO-Lite（budget=200, seed=42）已完成 baseline vs LLM-SemOp 对比：
   - Baseline：`feasible_rate=1.0`，`HV=0.5810`，`top1(total)=2.2992`
   - LLM-SemOp：`feasible_rate=1.0`，`HV=0.6113`，`top1(total)=2.3287`
@@ -457,6 +455,77 @@
 - VMEC 经典 baselines（GA / NSGA2，`eval_budget=1000`, `seed=42`）已跑完；为与 FusionOpt 的 Phase4HardV6 指标口径一致（`HV` 使用 `f*_min`，ref=`[1.1,1.1,1.1]`），我们基于保存的 raw properties 重新归一化并计算：
   - GA：`feasible_rate=0.9985`，`HV=0.2635`，`top1(total)=0.5397`
   - NSGA2：`feasible_rate=0.9990`，`HV=0.2635`，`top1(total)=0.5397`
+
+- VMEC 经典 baselines（NSGA2 / MOEA/D，`eval_budget=1000`, `seed=42/43`）已跑完（使用与 Phase4HardV6 一致的 `objective_ranges`；HV ref=`[1.1,1.1,1.1]`；并额外报告 `hv_unclipped` 作为诊断）：
+
+  run_dir：
+  - nsga2 seed42: `results/stellarator_vmec/nsga2/Stellarator_VMEC_Baseline_NSGA2_Budget1000_seed42_20260105T114621`
+  - moead seed42: `results/stellarator_vmec/moead/Stellarator_VMEC_Baseline_MOEAD_Budget1000_seed42_20260105T114621`
+  - nsga2 seed43: `results/stellarator_vmec/nsga2/Stellarator_VMEC_Baseline_NSGA2_Budget1000_seed43_20260105T130323`
+  - moead seed43: `results/stellarator_vmec/moead/Stellarator_VMEC_Baseline_MOEAD_Budget1000_seed43_20260105T130323`
+
+  `phase5_metrics_report.py` 输出：`analysis_outputs/phase5/metrics/`（对应 json + diagnostics.png）
+
+  | algo | seed | feasible_rate | HV (phase4) | top1(total) | hv_unclipped |
+  | --- | --- | --- | --- | --- | --- |
+  | nsga2 | 42 | 0.948 | 0.4880 | 0.7109 | 0.6505 |
+  | moead | 42 | 0.630 | 0.4557 | 0.6919 | 0.5870 |
+  | nsga2 | 43 | 0.921 | 0.5384 | 0.6667 | 0.6333 |
+  | moead | 43 | 0.998 | 0.4491 | 0.6846 | 0.4893 |
+
+  收敛曲线图（HV / top1(total) / feasible_rate）：
+
+  ![](analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-43.png)
+
+  - `png`: `analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-43.png`
+  - `summary json`: `analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-43.json`
+
+  #### MOEA/D seed42 可行率异常（0.63）诊断
+
+  现象：
+  - `seed42`：`ok&feasible=630/1000 (63.0%)`，其余 `370/1000` 均为 `status=sim_fail` 且 `sim_message=infeasible_or_failed`
+  - `seed43`：`ok&feasible=998/1000 (99.8%)`，仅 `2/1000` 为 `sim_fail`
+
+  对应 VMEC++ 失败信息（`results/_logs/vmec_moead_b1000_seed42_20260105T194620.log`）：
+  - `FATAL ERROR ... solver failed during the first iterations ... initial boundary is poorly shaped or ... isn't spectrally condensed enough`
+
+  补充证据：失败并非只发生在初期。
+  - `seed42`：后期（last 200 evals）`ok&feasible=135/200 (67.5%)`，说明整个 run 期间都持续触发 `sim_fail`
+  - `seed43`：`sim_fail` 仅出现在 very early（`eval_id<=48`），后期可行率稳定到 `100%`
+
+  初步结论：这更像是 **MOEA/D 对初始化/扰动幅度高度敏感的 seed 效应**（而非 evaluator/环境 bug）。对比 `decision_json` 中系数尺度：
+  - `seed42`（ok&feasible）：`mean(|coeff|)≈0.044`, `max(|coeff|)≈0.10`
+  - `seed43`（ok&feasible）：`mean(|coeff|)≈0.007`, `max(|coeff|)≈0.03`
+  更大的边界扰动会更频繁触发 VMEC++ “初始边界形状不佳” 的早期迭代失败。
+
+  建议的降方差修复（只影响 baseline，不影响 FusionOpt）：
+  - 收紧 `baseline.mutation_factor_range`（例如从 `[0.85, 1.15]` 收紧到 `[0.95, 1.05]`），减少边界形状被放大到发散区的概率。
+  - 或在 MOEA/D runner 里对 `new_coefficients` 做一次与 VMEC gate 相同的 clamp/sanitize（避免过大相对扰动）。
+
+  （可选）最小验证实验：只对 MOEA/D seed42 做一次 `budget=200` 的 quick rerun，对比
+  - 默认 `[0.85, 1.15]`
+  - 收紧 `[0.95, 1.05]`
+  若可行率显著上升，则可将异常归因于“扰动幅度过大 + seed 效应”。
+
+  #### 可复现命令（VMEC budget=1000, seeds=42/43）
+
+  生成 metrics（每个 run 一条）：
+  ```bash
+  ./MOLLM_env/bin/python3.10 analysis/phase5_metrics_report.py --run_dir results/stellarator_vmec/nsga2/Stellarator_VMEC_Baseline_NSGA2_Budget1000_seed42_20260105T114621
+  ./MOLLM_env/bin/python3.10 analysis/phase5_metrics_report.py --run_dir results/stellarator_vmec/moead/Stellarator_VMEC_Baseline_MOEAD_Budget1000_seed42_20260105T114621
+  ./MOLLM_env/bin/python3.10 analysis/phase5_metrics_report.py --run_dir results/stellarator_vmec/nsga2/Stellarator_VMEC_Baseline_NSGA2_Budget1000_seed43_20260105T130323
+  ./MOLLM_env/bin/python3.10 analysis/phase5_metrics_report.py --run_dir results/stellarator_vmec/moead/Stellarator_VMEC_Baseline_MOEAD_Budget1000_seed43_20260105T130323
+  ```
+
+  生成收敛曲线图（NSGA2 vs MOEA/D）：
+  ```bash
+  ./MOLLM_env/bin/python3.10 analysis/plot_vmec_baselines_multiseed_convergence.py --max-eval 1000 --step 20 --seeds 42 43
+  ```
+
+  生成总图（FusionOpt baseline / FusionOpt+LLM / NSGA2 / MOEA/D）：
+  ```bash
+  ./MOLLM_env/bin/python3.10 analysis/plot_vmec_fusionopt_vs_baselines_multiseed.py --max-eval 1000 --step 20 --seeds 42 43
+  ```
 
 - 备注：VMEC 的 `magnetic_shear` 在不同配置中若使用过窄的 `objective_ranges`，会导致 clipping（饱和）从而影响 `HV/top1` 的解释；Phase4HardV6 已使用更贴近可行区域的范围（如 `magnetic_shear=[0.85,1.05]`），但仍可能出现一定比例的 clipping，验收时需说明该风险。
 
@@ -479,8 +548,118 @@
  ### 验收标准（Acceptance）
  - 全链路可复现（配置 → 结果 → 图表）。
  - 结论稳健（跨 seed 统计支持）。
- 
- ---
+
+### VMEC（Phase4HardV6, budget=1000）multi-seed 汇总（Phase4 主口径）
+
+我们使用 Phase4 主口径（`f*_min` 基于 `objective_ranges` 的归一化并 clipping；HV ref=`[1.1,1.1,1.1]`）汇总 seed=42/43/44/45/46 的 paired runs（baseline vs LLM-SemOp）。
+
+配对 run_dir（budget=1000, algo_id=`fusionopt_v1`）：
+
+- seed42
+  - baseline: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_Baseline_Budget1000_seed42_20260101T072121`
+  - llm: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_LLM_SemOp_Budget1000_OpenAI_seed42_20260101T072121`
+- seed43
+  - baseline: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_Baseline_Budget1000_seed43_RERUN_20260104T073906Z`
+  - llm: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_LLM_SemOp_Budget1000_OpenAI_seed43_RERUN_20260104T073914Z`
+- seed44
+  - baseline: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_Baseline_Budget1000_seed44_20260104T105039`
+  - llm: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_LLM_SemOp_Budget1000_OpenAI_seed44_20260104T105039`
+- seed45
+  - baseline: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_Baseline_Budget1000_seed45_20260107T032317`
+  - llm: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_LLM_SemOp_Budget1000_OpenAI_seed45_20260107T032317`
+- seed46
+  - baseline: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_Baseline_Budget1000_seed46_20260103T074647_rerun`
+  - llm: `results/stellarator_vmec/fusionopt_v1/Stellarator_VMEC_Phase4HardV6_LLM_SemOp_Budget1000_OpenAI_seed46_20260103T074650_rerun`
+
+多 seed 收敛图输出：
+
+- `analysis_outputs/phase5/figures/phase4_hardv6_baseline_vs_llm_semop_budget1000_multiseed.png`
+
+#### FusionOpt vs 经典 baselines（budget=1000, seeds=42-46；同 Phase4 口径）
+
+总图（HV / top1(total) / feasible_rate）：
+
+![](analysis_outputs/phase5/figures/vmec_fusionopt_vs_baselines_budget1000_seeds42-46.png)
+
+- `png`: `analysis_outputs/phase5/figures/vmec_fusionopt_vs_baselines_budget1000_seeds42-46.png`
+- `summary json`: `analysis_outputs/phase5/figures/vmec_fusionopt_vs_baselines_budget1000_seeds42-46.json`
+
+最终（eval_id=1000）指标汇总（per-seed + mean/std）：
+
+| algo | HV (seed42-46; mean±std) | top1(total) (seed42-46; mean±std) | feasible_rate (seed42-46; mean±std) |
+| --- | --- | --- | --- |
+| FusionOpt Baseline | 0.7478, 1.2395, 0.7432, 0.7537, 1.1961; 0.9361±0.2305 | 0.7296, 0.9504, 0.7467, 0.7290, 0.9089; 0.8129±0.0964 | 0.5560, 0.5610, 0.5620, 0.5510, 0.5590; 0.5578±0.0040 |
+| FusionOpt + LLM-SemOp | 1.2313, 0.7806, 0.8601, 0.8717, 1.2293; 0.9946±0.1950 | 0.9487, 0.7392, 0.7544, 0.7788, 0.9424; 0.8327±0.0930 | 0.5760, 0.5770, 0.5880, 0.5900, 0.5970; 0.5856±0.0080 |
+| NSGA2 | 0.4880, 0.5384, 0.5563, 0.4615, 0.6736; 0.5436±0.0734 | 0.7109, 0.6667, 0.7205, 0.6631, 0.7031; 0.6928±0.0235 | 0.9480, 0.9210, 0.7780, 0.9990, 0.9070; 0.9106±0.0734 |
+| MOEA/D | 0.4568, 0.5767, 0.4506, 0.4717, 0.5628; 0.5037±0.0545 | 0.6927, 0.6369, 0.6808, 0.7039, 0.6428; 0.6714±0.0269 | 0.9720, 0.9390, 0.9880, 0.9990, 0.9740; 0.9744±0.0202 |
+
+#### NSGA2 vs MOEA/D（budget=1000, seeds=42-46）
+
+收敛图（HV / top1(total) / feasible_rate）：
+
+![](analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-46.png)
+
+- `png`: `analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-46.png`
+- `summary json`: `analysis_outputs/phase5/figures/vmec_baselines_nsga2_vs_moea_d_budget1000_seeds42-46.json`
+
+#### 为什么 NSGA2/MOEA-D `feasible_rate` 高但 `HV/top1` 低？（基于 seeds=42-46 的现象解释）
+
+这不是“可行率统计错误”，更像是 **搜索分布** 的差异：NSGA2/MOEA-D 更容易稳定地产生“接近基准输入”的可行点，但较难触及能显著改善多目标折衷的区域。
+
+- **决策空间探索半径偏小**：
+  - NSGA2/MOEA-D 的初始种群来自对基准 `input.w7x` 的轻微扰动（每个个体改动系数数量少、相对变化幅度小），天然继承了“基准可行”的属性，所以 `feasible_rate` 很高。
+  - 其变异/交叉算子主要对已有的 `new_coefficients` 做缩放/重组，难以持续引入“新的 mode/新的系数组合”，会导致搜索长期停留在局部邻域。
+
+- **多目标指标（HV）更偏向“覆盖面/极端点”而不是“平均更可行”**：
+  - `feasible_rate` 只关心数量（ok&feasible 占比），对“前沿覆盖是否扩展”不敏感。
+  - HV 需要非支配解在多个目标上形成更大的覆盖/扩张；如果算法只在一个小邻域里打转，即使可行点很多，HV 也可能提升有限。
+
+- **Phase4 口径的 clipping 会放大这种差异**：
+  - 当某些方法偶尔撞到 `objective_ranges` 边界（或接近边界）时，clipping 可能让单个点对 HV/top1 的贡献被放大，导致方差增大。
+  - FusionOpt 的扰动更激进、更容易产生“靠近边界/极端”的点，因此更可能在 HV/top1 上占优势（同时也伴随更高的不稳定性）。
+
+综合来看：NSGA2/MOEA-D 的结果“差”主要体现在 **前沿质量与覆盖**（HV/top1）而非“可行率”，其根因更可能是 **算子与初始种群导致的保守搜索**。
+
+逐 seed 指标（`LLM - Baseline`）：
+
+| seed | Δ feasible_rate | Δ HV | Δ top1(total) |
+| --- | --- | --- | --- |
+| 42 | +0.020 | +0.483 | +0.219 |
+| 43 | +0.016 | -0.459 | -0.211 |
+| 44 | +0.026 | +0.117 | +0.0077 |
+| 46 | +0.038 | +0.033 | +0.033 |
+
+Paired deltas 汇总（N=4）：
+
+- `feasible_rate`：mean `+0.0250`，std `0.0096`，win-rate `1.00`，Cohen’s d_z `2.606`
+- `HV`（Phase4 主口径）：mean `+0.0437`，std `0.3879`，win-rate `0.75`，Cohen’s d_z `0.113`
+- `top1(total)`：mean `+0.0123`，std `0.1763`，win-rate `0.75`，Cohen’s d_z `0.070`
+
+#### 为什么 `HV/top1` 的跨 seed 方差这么大？
+
+主要原因是 Phase4 的主指标口径包含 clipping（将 out-of-range 的 raw objective 映射到 `f*_min=0/1`），而 HV 对“极端点/边界点”非常敏感：
+
+- 一旦某个 seed 很早就出现接近/超过 `objective_ranges` 边界的点，clipping 会把该维的 `f*_min` 推到 0 或 1，使得该点对 HV/top1 的贡献被放大；
+- 不同 seed 在“是否出现这种极端点、出现的时机、出现在 baseline 还是 LLM”上差异很大，因此 HV/top1 的方差会显著增大；
+- `feasible_rate` 本质上是计数型指标，不依赖归一化/clipping，因此跨 seed 更稳定。
+
+作为诊断证据（不作为正文主指标），我们也计算了 unclipped 版本的 HV：其 paired delta 的 mean 更大，但方差仍不小且仍存在 seed43 的反例；该指标主要用于 sanity check（说明 clipping/饱和并非唯一来源）。
+
+#### 可改进的稳健口径（仅改后处理，不改任何 run 配置）
+
+为减少“极端点”对 HV 的放大效应，可以采用固定、可复现的稳健归一化/soft-clipping（推荐将其作为 Appendix 的 robustness check；若要作为正文主指标，需在实验前声明口径）。例如：
+
+- 固定 bounds 的 winsorized 归一化：以一个预先指定的 calibration run（例如 seed42 baseline）在 `ok&feasible` 上的 1%/99% 分位数作为三目标的固定上下界，对 raw objectives winsorize 后再计算 HV。该口径在 seed42/43/44/46 上的 ΔHV（LLM-B）为：`+0.109, -0.056, +0.035, +0.017`（mean `+0.026`，std `0.068`，win-rate `0.75`）。
+- soft-clipping（例如 arctan）：在 unclipped 归一化 `f` 上做单调压缩（减小远离范围的点的“杠杆”），再计算 HV。以 arctan（τ=0.5）为例，ΔHV（LLM-B）为：`+0.094, -0.068, +0.015, +0.043`（mean `+0.021`，std `0.068`，win-rate `0.75`）。
+
+#### 结论表述建议：我们能否说 LLM 明显优于 baseline？
+
+基于当前 N=4 seeds（42/43/44/46）：
+
+- 对 `feasible_rate`：提升在所有 seed 上一致（win-rate=1.00，效应量 d_z=2.606），可以表述为“LLM-SemOp **显著提升可行率/有效评估比例**（跨 seed 稳健）”。
+- 对 `HV/top1(total)`：存在 seed43 的明确反例，且 N 很小（统计显著性不足），更稳妥的表述是“LLM-SemOp **在多数 seed 上提升或持平**，但在该指标口径下跨 seed 方差较大；我们在文中同时报告主指标与 unclipped 诊断，解释该不稳定性来源”。
+
+---
  
  ## 附：协作与里程碑建议
  

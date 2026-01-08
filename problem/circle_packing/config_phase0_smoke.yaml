@@ -1,0 +1,49 @@
+exper_name: "Circle_Packing_Phase0_Smoke"
+description: "Circle packing in unit square; maximize equal radius."
+resume: false
+
+model:
+  name: ""
+  api_key: ""
+
+goals: [radius]
+optimization_direction: [max]
+
+evalutor_path: problem.circle_packing.evaluator
+
+circle_packing:
+  n_circles: 10
+
+optimization:
+  pop_size: 20
+  eval_budget: 200
+  log_freq: 20
+
+objective_ranges:
+  radius: [0.0, 0.5]
+
+fusionopt:
+  offspring_per_gen: 20
+  batch_eval_size: 20
+  max_attempts_per_child: 200
+  use_heu_repair: true
+  operator_weights:
+    std_crossover: 0.4
+    std_mutation: 0.6
+    std_resample: 0.0
+    llm_semop: 0.0
+
+  std_mutation:
+    circle_packing:
+      sigma: 0.05
+      max_points: 3
+
+protocol:
+  problem_id: "circle_packing"
+  algo_id: "fusionopt_v1"
+
+seed:
+  master: 42
+
+logging:
+  results_base_dir: "./results/circle_packing"

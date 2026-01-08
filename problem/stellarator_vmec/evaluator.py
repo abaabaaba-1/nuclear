@@ -1,4 +1,5 @@
 # problem/stellarator_vmec/evaluator.py (已修正)
+import os
 import numpy as np
 import json
 import logging
@@ -188,6 +189,18 @@ class RewardingSystem:
                         (f" (top {self.save_wout_top_k})" if self.save_wout_mode == 'top_k' else ""))
         
         self.modifier = VmecFileModifier(self.sacs_project_path, self.input_file)
+        mt = config.get('vmec.max_threads', None)
+        if mt is None:
+            self.vmec_max_threads = None
+        else:
+            try:
+                mt_int = int(mt)
+            except Exception:
+                mt_int = 0
+            if mt_int <= 0:
+                self.vmec_max_threads = None
+            else:
+                self.vmec_max_threads = mt_int
         try:
             extracted = self.modifier.extract_coefficients()
         except Exception as base_e:
@@ -262,7 +275,7 @@ class RewardingSystem:
                     # 从修改后的文件加载输入
                     vmec_input = vmecpp.VmecInput.from_file(self.modifier.input_file_path)
                     # 运行计算
-                    vmec_output = vmecpp.run(vmec_input, verbose=False)
+                    vmec_output = vmecpp.run(vmec_input, verbose=False, max_threads=self.vmec_max_threads)
                     
                     # 智能保存wout文件（根据save_wout_mode设置）
                     # 注意：此时还未计算total score，稍后在top_k模式中会重新保存
@@ -484,18 +497,21 @@ class RewardingSystem:
             keys = keys[:max_changes]
         sanitized = {}
         for key in keys:
-            value = new_coefficients[key]
+            try:
+                value = float(new_coefficients[key])
+            except (TypeError, ValueError):
+                continue
             norm_key = key.strip().replace(" ", "")
             base_val = self.base_coeffs.get(norm_key)
             m, n = _parse_mode_numbers(norm_key)
             if base_val is not None and base_val != 0.0 and m is not None and n is not None:
                 limit = low_limit if (m <= 2 and n <= 1) else high_limit
-                rel_change = abs(value - base_val) / abs(base_val)
-                if rel_change > limit:
-                    if value >= base_val:
-                        value = base_val * (1.0 + limit)
-                    else:
-                        value = base_val * (1.0 - limit)
+                delta = value - base_val
+                max_delta = limit * abs(base_val)
+                if delta > max_delta:
+                    value = base_val + max_delta
+                elif delta < -max_delta:
+                    value = base_val - max_delta
             sanitized[norm_key] = value
         return sanitized
 
